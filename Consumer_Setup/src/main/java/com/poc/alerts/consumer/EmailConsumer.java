@@ -1,11 +1,13 @@
 package com.poc.alerts.consumer;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import com.poc.alerts.header.HeaderExtractor;
 import com.poc.alerts.repository.ProcessedAlertAuditRepository;
 import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.TemplateProcessorService;
@@ -29,12 +31,24 @@ public class EmailConsumer {
     @KafkaListener(
             topics = "notifications.events",
             groupId = "email-consumer-group")
-    public void consume(String message) {
+    public void consume(String message, ConsumerRecord<String, String> record) {
 
         log.info("--------------------------------------------------");
         log.info("Kafka message received for EMAIL processing");
 
         try {
+
+            // HEADER VALIDATION
+            String eventTypeHeader = HeaderExtractor.extractHeader(record, "event-type");
+            String alertTypeHeader = HeaderExtractor.extractHeader(record, "alert-type");
+
+            log.info("Header EventType : {}", eventTypeHeader);
+            log.info("Header AlertType : {}", alertTypeHeader);
+
+            if (!"EMAIL".equalsIgnoreCase(alertTypeHeader)) {
+                log.info("Message not meant for EMAIL consumer. Skipping.");
+                return;
+            }
 
             String messageType = PayloadParser.extractType(message);
 
@@ -43,7 +57,7 @@ public class EmailConsumer {
             if (!"EMAIL".equalsIgnoreCase(messageType)
                     && !"BOTH".equalsIgnoreCase(messageType)) {
 
-            	log.info("MessageType is not EMAIL/BOTH. Skipping message");
+                log.info("MessageType is not EMAIL/BOTH. Skipping message");
                 return;
             }
 
@@ -52,9 +66,9 @@ public class EmailConsumer {
             auditService.saveAudit("notifications.events", message);
 
             log.info("Audit entry successfully stored");
-            
+
             String eventId = PayloadParser.extractEventId(message);
-            messageType = "EMAIL";   // or SMS depending consumer
+            messageType = "EMAIL";
 
             boolean alreadyProcessed =
                     processedAlertAuditRepository
@@ -68,7 +82,6 @@ public class EmailConsumer {
                 return;
             }
 
-            // extract values from payload
             String eventType = PayloadParser.extractEventType(message);
             String alertType = PayloadParser.extractAlertType(message);
 
@@ -88,12 +101,10 @@ public class EmailConsumer {
 
         } catch (Exception ex) {
 
-        	log.error("Error occurred while processing EMAIL notification", ex);
+            log.error("Error occurred while processing EMAIL notification", ex);
         }
 
         log.info("EMAIL processing completed");
         log.info("--------------------------------------------------");
-
-       
     }
 }	

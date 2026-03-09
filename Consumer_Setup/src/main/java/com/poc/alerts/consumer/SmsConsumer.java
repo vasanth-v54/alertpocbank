@@ -3,9 +3,11 @@ package com.poc.alerts.consumer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.poc.alerts.header.HeaderExtractor;
 import com.poc.alerts.repository.ProcessedAlertAuditRepository;
 import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.TemplateProcessorService;
@@ -31,13 +33,27 @@ public class SmsConsumer {
     @KafkaListener(
             topics="notifications.events",
             groupId="sms-consumer-group")
-    public void consume(String message) {
+    public void consume(String message, ConsumerRecord<String,String> record) {
 
         log.info("=====================================================");
         log.info("SMS CONSUMER TRIGGERED");
         log.info("Kafka message received from topic: notifications.events");
 
         try {
+
+            // HEADER VALIDATION
+            String eventTypeHeader = HeaderExtractor.extractHeader(record, "event-type");
+            String alertTypeHeader = HeaderExtractor.extractHeader(record, "alert-type");
+
+            log.info("Header EventType : {}", eventTypeHeader);
+            log.info("Header AlertType : {}", alertTypeHeader);
+
+            if (!"sms".equalsIgnoreCase(alertTypeHeader)) {
+
+                log.info("Message not meant for SMS consumer. Skipping.");
+                log.info("=====================================================");
+                return;
+            }
 
             String type = PayloadParser.extractType(message);
 
@@ -61,7 +77,7 @@ public class SmsConsumer {
             log.info("Audit record successfully inserted");
             
             String eventId = PayloadParser.extractEventId(message);
-            type = "SMS";   // or SMS depending consumer
+            type = "SMS";
 
             boolean alreadyProcessed =
                     processedAlertAuditRepository
