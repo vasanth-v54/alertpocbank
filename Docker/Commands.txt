@@ -1,0 +1,20 @@
+to start docker :
+ 
+docker compose up -d
+ 
+to delete docke :
+ 
+docker compose down -v
+ 
+to create topic :
+ 
+docker exec -it kafka-broker kafka-topics --bootstrap-server localhost:9092 --create --topic notifications.events --partitions 8 --replication-factor 1
+ 
+to delete topic :
+ 
+docker exec -it kafka-broker kafka-topics --bootstrap-server localhost:9092 --delete --topic notifications.events
+
+to run producer :
+
+mvn clean spring-boot:run
+ 

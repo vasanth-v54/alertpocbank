@@ -1,0 +1,8 @@
+.metadata/
+*.tar
+Output/
+target/
+.metadata/
+.settings/
+.project
+.classpath

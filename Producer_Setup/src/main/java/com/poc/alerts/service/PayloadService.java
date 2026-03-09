@@ -1,0 +1,65 @@
+package com.poc.alerts.service;
+
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.poc.alerts.entity.PayloadMst;
+import com.poc.alerts.repository.PayloadRepository;
+
+@Service
+public class PayloadService {
+
+	private final PayloadRepository payloadRepository;
+	private final KafkaProducerService kafkaProducerService;
+	private static final Logger log = LoggerFactory.getLogger(PayloadService.class);
+
+	public PayloadService(PayloadRepository payloadRepository, KafkaProducerService kafkaProducerService) {
+		this.kafkaProducerService = kafkaProducerService;
+		this.payloadRepository = payloadRepository;
+	}
+
+	public void publishPayloads() throws JsonMappingException, JsonProcessingException {
+
+	    log.info("========= PAYLOAD PUBLISH JOB STARTED ==========");
+
+	    List<PayloadMst> payloadList =
+	            payloadRepository.findByTopicStatus("PENDING");
+
+	    if (payloadList.isEmpty()) {
+
+	        log.info("No payload found in DB");
+	        log.info("Waiting for payload insertion...");
+	        return;
+	    }
+
+	    log.info("Total payload records fetched from DB : {}", payloadList.size());
+
+	    for (PayloadMst payload : payloadList) {
+
+	        log.info("-----------------------------------------------");
+	        log.info("Processing payload id : {}", payload.getId());
+	        log.info("Payload Type : {}", payload.getPayloadType());
+
+	        // UPDATED METHOD CALL
+	        kafkaProducerService.sendPayload(
+	                payload.getId(),
+	                payload.getPayloadType(),
+	                payload.getPayload()
+	        );
+
+	        payload.setTopicStatus("PUBLISHED");
+
+	        payloadRepository.save(payload);
+
+	        log.info("Payload id {} marked as PUBLISHED", payload.getId());
+	    }
+
+	    log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");
+	}
+
+}

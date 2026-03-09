@@ -1,0 +1,129 @@
+<configuration>
+
+    <property name="LOG_PATH" value="logs"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- ============================= -->
+    <!-- Main Producer Log File -->
+    <!-- ============================= -->
+    <appender name="FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <file>${LOG_PATH}/producer.log</file>
+
+        <rollingPolicy
+                class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+
+            <fileNamePattern>
+                ${LOG_PATH}/producer-%d{yyyy-MM-dd}.%i.log
+            </fileNamePattern>
+
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+    </appender>
+
+    <!-- ============================= -->
+    <!-- Kafka Audit Log File -->
+    <!-- ============================= -->
+    <appender name="KAFKA_AUDIT_FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <file>${LOG_PATH}/kafka-payload-audit.log</file>
+
+        <rollingPolicy
+                class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+
+            <fileNamePattern>
+                ${LOG_PATH}/kafka-payload-audit-%d{yyyy-MM-dd}.%i.log
+            </fileNamePattern>
+
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} | %msg%n</pattern>
+        </encoder>
+
+    </appender>
+
+    <!-- ============================= -->
+    <!-- Kafka Error Log File -->
+    <!-- ============================= -->
+    <appender name="KAFKA_ERROR_FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <file>${LOG_PATH}/kafka-error.log</file>
+
+        <rollingPolicy
+                class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+
+            <fileNamePattern>
+                ${LOG_PATH}/kafka-error-%d{yyyy-MM-dd}.%i.log
+            </fileNamePattern>
+
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} | %msg%n</pattern>
+        </encoder>
+
+    </appender>
+
+    <!-- ============================= -->
+    <!-- Console Appender -->
+    <!-- ============================= -->
+    <appender name="CONSOLE"
+              class="ch.qos.logback.core.ConsoleAppender">
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+    </appender>
+
+    <!-- ============================= -->
+    <!-- Kafka Audit Logger -->
+    <!-- ============================= -->
+    <logger name="KAFKA_AUDIT_LOGGER"
+            level="INFO"
+            additivity="false">
+
+        <appender-ref ref="KAFKA_AUDIT_FILE"/>
+
+    </logger>
+
+    <!-- ============================= -->
+    <!-- Kafka Error Logger -->
+    <!-- ============================= -->
+    <logger name="KAFKA_ERROR_LOGGER"
+            level="ERROR"
+            additivity="false">
+
+        <appender-ref ref="KAFKA_ERROR_FILE"/>
+
+    </logger>
+
+    <!-- ============================= -->
+    <!-- Root Logger -->
+    <!-- ============================= -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
