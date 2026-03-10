@@ -50,7 +50,8 @@ public class TemplateProcessorService {
 
         log.info("Finding template for AlertType={} MessageType={}",
                 alertType, messageType);
-
+        templateLog.info("****TEMPLATE MASTER VALIDATION STARTS****");
+        
         TemplateMst template =
                 templateRepository
                         .findByAlertTypeAndMessageType(alertType, messageType);
@@ -65,6 +66,8 @@ public class TemplateProcessorService {
 
         String templateId = template.getTemplateId();
 
+        templateLog.info("****TEMPLATE MASTER VALIDATION ENDS****");
+        templateLog.info("****EVENT_TYPE_MASTER & MAPPING VALIDATION STARTS****");
         log.info("TemplateId resolved : {}", templateId);
 
         EventTemplateMapping mapping =
@@ -83,7 +86,9 @@ public class TemplateProcessorService {
         log.info("Template params fetched from DB : {}", templateParams);
 
         log.info("Extracting variables from payload");
-
+        
+        templateLog.info("****EVENT_TYPE_MASTER & MAPPING VALIDATION ENDS****");
+        
         Map<String,String> values =
                 payloadVariableExtractor.extractVariables(
                         payload,
