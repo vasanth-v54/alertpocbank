@@ -1,16 +1,21 @@
 package com.poc.alerts.service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.poc.alerts.entity.EventTemplateMapping;
+import com.poc.alerts.entity.ProcessedAlertAudit;
 import com.poc.alerts.entity.TemplateMst;
 import com.poc.alerts.repository.EventTemplateMappingRepository;
+import com.poc.alerts.repository.ProcessedAlertAuditRepository;
 import com.poc.alerts.repository.TemplateRepository;
+import com.poc.alerts.util.PayloadParser;
 
 @Service
 public class TemplateProcessorService {
@@ -22,8 +27,8 @@ public class TemplateProcessorService {
     private final TemplateRepository templateRepository;
     private final EventTemplateMappingRepository eventTemplateMappingRepository;
     private final PayloadVariableExtractor payloadVariableExtractor;
-    private final TemplateRenderer templateRenderer;
-
+    @Autowired
+	private ProcessedAlertAuditRepository processedAlertAuditRepository;
     public TemplateProcessorService(
             TemplateRepository templateRepository,
             EventTemplateMappingRepository eventTemplateMappingRepository,
@@ -33,7 +38,6 @@ public class TemplateProcessorService {
         this.templateRepository = templateRepository;
         this.eventTemplateMappingRepository = eventTemplateMappingRepository;
         this.payloadVariableExtractor = payloadVariableExtractor;
-        this.templateRenderer = templateRenderer;
     }
 
     public String processTemplate(String payload,
@@ -109,16 +113,17 @@ public class TemplateProcessorService {
 
         templateLog.info("AlertType={}, Final Result After Masked : {}",alertType, values);
         
-//        String templateBody = template.getTemplate();
-//
-//        log.info("Template Body : {}", templateBody);
-//
-//        String finalMessage =
-//                templateRenderer.render(templateBody,values);
-//
-//        log.info("Final message generated");
-//
-//        log.info("=====================================================");
+        ProcessedAlertAudit audit = new ProcessedAlertAudit();
+		String eventId = PayloadParser.extractEventId(payload);
+		audit.setMessageType(messageType);
+		audit.setMessage(values.toString());
+		audit.setEventId(eventId);
+		audit.setAlertType(alertType);
+		audit.setCreatedOn(LocalDateTime.now());
+		audit.setCreatedBy("SYSTEM");
+		processedAlertAuditRepository.save(audit);
+
+		templateLog.info("Processed alert stored in PROCESSED_ALERT_AUDIT table");
 
         return "Template Procossing Completed";
     }
