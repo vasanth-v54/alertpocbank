@@ -40,7 +40,13 @@ public class KafkaProducerService {
         // Extract fields
         String businessKey = rootNode.path("businessKey").asText();
         String eventType = rootNode.path("eventType").asText();
+        String messageType =
+        		rootNode.path("payload")
+                    .path("customFieldDetails")
+                    .path("MessageType")
+                    .asText();
 
+        System.out.println("MessageType = " + messageType);
         System.out.println("BusinessKey : " + businessKey);
         System.out.println("EventType   : " + eventType);
         
@@ -49,7 +55,7 @@ public class KafkaProducerService {
 
         // Add headers
         record.headers().add("event-type", eventType.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("alert-type", "email".getBytes(StandardCharsets.UTF_8));
+        record.headers().add("alert-type", messageType.getBytes(StandardCharsets.UTF_8));
 
         System.out.println("---- HEADER DEBUG ----");
         record.headers().forEach(header ->

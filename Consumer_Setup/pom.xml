@@ -68,6 +68,17 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Jackson -->
+	    <dependency>
+	        <groupId>com.fasterxml.jackson.core</groupId>
+	        <artifactId>jackson-databind</artifactId>
+	    </dependency>
+
+    	<!-- JsonPath -->
+    	<dependency>
+	        <groupId>com.jayway.jsonpath</groupId>
+	        <artifactId>json-path</artifactId>
+	        </dependency>
 	</dependencies>
 
 	<build>
