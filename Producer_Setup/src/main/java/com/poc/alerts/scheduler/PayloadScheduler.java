@@ -5,8 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.poc.alerts.service.PayloadService;
 
 @Component
@@ -21,15 +19,22 @@ public class PayloadScheduler {
     }
 
     @Scheduled(fixedDelay = 10000)
-    public void pollDatabase() throws JsonMappingException, JsonProcessingException {
+    public void pollDatabase() {
 
         log.info("=================================================");
         log.info("Scheduler triggered : Checking DB for new payloads");
 
-        payloadService.publishPayloads();
+        try {
+
+            payloadService.publishPayloads();
+
+        } catch (Exception ex) {
+
+            log.error("Error while publishing payloads from scheduler", ex);
+
+        }
 
         log.info("Scheduler cycle completed");
         log.info("=================================================");
-
     }
 }

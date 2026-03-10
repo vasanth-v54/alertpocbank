@@ -1,65 +1,99 @@
 package com.poc.alerts.service;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.poc.alerts.entity.PayloadMst;
 import com.poc.alerts.repository.PayloadRepository;
 
 @Service
 public class PayloadService {
 
-	private final PayloadRepository payloadRepository;
-	private final KafkaProducerService kafkaProducerService;
-	private static final Logger log = LoggerFactory.getLogger(PayloadService.class);
+    private final PayloadRepository payloadRepository;
+    private final KafkaProducerService kafkaProducerService;
 
-	public PayloadService(PayloadRepository payloadRepository, KafkaProducerService kafkaProducerService) {
-		this.kafkaProducerService = kafkaProducerService;
-		this.payloadRepository = payloadRepository;
-	}
+    private static final Logger log = LoggerFactory.getLogger(PayloadService.class);
 
-	public void publishPayloads() throws JsonMappingException, JsonProcessingException {
+    private final ObjectMapper mapper = new ObjectMapper();
 
-	    log.info("========= PAYLOAD PUBLISH JOB STARTED ==========");
+    public PayloadService(PayloadRepository payloadRepository,
+                          KafkaProducerService kafkaProducerService) {
 
-	    List<PayloadMst> payloadList =
-	            payloadRepository.findByTopicStatus("PENDING");
+        this.kafkaProducerService = kafkaProducerService;
+        this.payloadRepository = payloadRepository;
+    }
 
-	    if (payloadList.isEmpty()) {
+    @SuppressWarnings("unchecked")
+	public void publishPayloads() throws Exception {
 
-	        log.info("No payload found in DB");
-	        log.info("Waiting for payload insertion...");
-	        return;
-	    }
+        log.info("========= PAYLOAD PUBLISH JOB STARTED ==========");
 
-	    log.info("Total payload records fetched from DB : {}", payloadList.size());
+        List<PayloadMst> payloadList =
+                payloadRepository.findByTopicStatus("PENDING");
 
-	    for (PayloadMst payload : payloadList) {
+        if (payloadList.isEmpty()) {
 
-	        log.info("-----------------------------------------------");
-	        log.info("Processing payload id : {}", payload.getId());
-	        log.info("Payload Type : {}", payload.getPayloadType());
+            log.info("No payload found in DB");
+            log.info("Waiting for payload insertion...");
+            return;
+        }
 
-	        // UPDATED METHOD CALL
-	        kafkaProducerService.sendPayload(
-	                payload.getId(),
-	                payload.getPayloadType(),
-	                payload.getPayload()
-	        );
+        log.info("Total payload records fetched from DB : {}", payloadList.size());
 
-	        payload.setTopicStatus("PUBLISHED");
+        for (PayloadMst payload : payloadList) {
 
-	        payloadRepository.save(payload);
+            log.info("-----------------------------------------------");
+            log.info("Processing payload id : {}", payload.getId());
+            log.info("Payload Type : {}", payload.getPayloadType());
 
-	        log.info("Payload id {} marked as PUBLISHED", payload.getId());
-	    }
+            /*
+             * FULL JSON from DB
+             */
+            String fullJson = payload.getPayload();
 
-	    log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");
-	}
+            JsonNode rootNode = mapper.readTree(fullJson);
 
+            /*
+             * Extract payload section
+             */
+            JsonNode payloadNode = rootNode.path("payload");
+
+            String payloadJson = mapper.writeValueAsString(payloadNode);
+
+            /*
+             * Extract header fields (everything except payload)
+             */
+            Map<String, Object> headerMap = mapper.convertValue(rootNode, Map.class);
+            headerMap.remove("payload");
+
+            String headerJson = mapper.writeValueAsString(headerMap);
+
+            log.debug("Header JSON : {}", headerJson);
+            log.debug("Payload JSON : {}", payloadJson);
+
+            /*
+             * Send to Kafka
+             */
+            kafkaProducerService.sendPayload(
+                    payload.getId(),
+                    payload.getPayloadType(),
+                    headerJson,
+                    payloadJson
+            );
+
+            payload.setTopicStatus("PUBLISHED");
+
+            payloadRepository.save(payload);
+
+            log.info("Payload id {} marked as PUBLISHED", payload.getId());
+        }
+
+        log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");
+    }
 }

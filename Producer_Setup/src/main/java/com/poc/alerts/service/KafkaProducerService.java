@@ -9,8 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.poc.alerts.constants.AppConstants;
@@ -18,49 +16,83 @@ import com.poc.alerts.constants.AppConstants;
 @Service
 public class KafkaProducerService {
 
-	private static final Logger log = LoggerFactory.getLogger(KafkaProducerService.class);
-	private static final Logger auditLog =
-	        LoggerFactory.getLogger("KAFKA_AUDIT_LOGGER");
+    private static final Logger log = LoggerFactory.getLogger(KafkaProducerService.class);
 
-	private final KafkaTemplate<String, String> kafkaTemplate;
+    private static final Logger auditLog =
+            LoggerFactory.getLogger("KAFKA_AUDIT_LOGGER");
 
-	public KafkaProducerService(KafkaTemplate<String, String> kafkaTemplate) {
-		this.kafkaTemplate = kafkaTemplate;
-	}
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
-	public void sendPayload(Long payloadId, String payloadType, String payloadJson) throws JsonMappingException, JsonProcessingException {
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    public KafkaProducerService(KafkaTemplate<String, String> kafkaTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+    public void sendPayload(Long payloadId,
+                            String payloadType,
+                            String headerJson,
+                            String payloadJson) throws Exception {
 
         log.info("Producing message to topic {}", AppConstants.TOPIC);
-        log.debug("Payload JSON {}", payloadJson);
-        
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(payloadJson);
+        /*
+         * -----------------------------
+         * Parse header JSON
+         * -----------------------------
+         */
+        JsonNode headerNode = mapper.readTree(headerJson);
 
-        // Extract fields
-        String businessKey = rootNode.path("businessKey").asText();
-        String eventType = rootNode.path("eventType").asText();
-        String messageType =
-        		rootNode.path("payload")
-                    .path("customFieldDetails")
-                    .path("MessageType")
-                    .asText();
+        String businessKey = headerNode.path("businessKey").asText();
+        String eventType   = headerNode.path("eventType").asText();
+        String eventId     = headerNode.path("eventId").asText();
+        String source      = headerNode.path("eventSourceId").asText();
+        String status      = headerNode.path("status").asText();
 
-        System.out.println("MessageType = " + messageType);
-        System.out.println("BusinessKey : " + businessKey);
-        System.out.println("EventType   : " + eventType);
-        
+        log.info("BusinessKey : {}", businessKey);
+        log.info("EventType   : {}", eventType);
+        log.info("EventId     : {}", eventId);
+
+        /*
+         * -----------------------------
+         * Create Kafka Record
+         * -----------------------------
+         */
+
         ProducerRecord<String, String> record =
                 new ProducerRecord<>(AppConstants.TOPIC, businessKey, payloadJson);
 
-        // Add headers
-        record.headers().add("event-type", eventType.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("alert-type", messageType.getBytes(StandardCharsets.UTF_8));
+        /*
+         * -----------------------------
+         * Add Kafka Headers
+         * -----------------------------
+         */
 
-        System.out.println("---- HEADER DEBUG ----");
+        record.headers().add("event-type", eventType.getBytes(StandardCharsets.UTF_8));
+        record.headers().add("event-id", eventId.getBytes(StandardCharsets.UTF_8));
+        record.headers().add("source", source.getBytes(StandardCharsets.UTF_8));
+        record.headers().add("status", status.getBytes(StandardCharsets.UTF_8));
+        record.headers().add("alert-type", "email".getBytes(StandardCharsets.UTF_8));
+
+        /*
+         * -----------------------------
+         * Debug Headers
+         * -----------------------------
+         */
+
+        log.info("----- Kafka Headers -----");
+
         record.headers().forEach(header ->
-                System.out.println(header.key() + " = " + new String(header.value())));
-        System.out.println("----------------------");
+                log.info("{} = {}", header.key(), new String(header.value()))
+        );
+
+        log.info("-------------------------");
+
+        /*
+         * -----------------------------
+         * Send to Kafka
+         * -----------------------------
+         */
 
         kafkaTemplate.send(record)
                 .whenComplete((result, ex) -> {
@@ -76,7 +108,8 @@ public class KafkaProducerService {
                         log.info("Message successfully published to topic {}", topic);
 
                         auditLog.info(
-                                "EVENT=KAFKA_PUBLISHED | timestamp={} | payloadId={} | payloadType={} | topic={} | partition={} | offset={} | payload={}",
+                                "HEADERS={} | EVENT=KAFKA_PUBLISHED | timestamp={} | payloadId={} | payloadType={} | topic={} | partition={} | offset={} | payload={}",
+                                record,
                                 timestamp,
                                 payloadId,
                                 payloadType,
@@ -91,7 +124,8 @@ public class KafkaProducerService {
                         log.error("Kafka publish failed for payloadId={}", payloadId, ex);
 
                         auditLog.error(
-                                "EVENT=KAFKA_PUBLISH_FAILED | payloadId={} | payloadType={} | topic={} | error={} | payload={}",
+                                "HEADERS={} | EVENT=KAFKA_PUBLISH_FAILED | payloadId={} | payloadType={} | topic={} | error={} | payload={}",
+                                record,
                                 payloadId,
                                 payloadType,
                                 AppConstants.TOPIC,
@@ -101,5 +135,4 @@ public class KafkaProducerService {
                     }
                 });
     }
-
 }
