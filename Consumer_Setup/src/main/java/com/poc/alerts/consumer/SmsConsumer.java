@@ -1,128 +1,88 @@
 package com.poc.alerts.consumer;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Component;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Headers;
+import org.springframework.stereotype.Service;
 
-import com.poc.alerts.header.HeaderExtractor;
-import com.poc.alerts.repository.ProcessedAlertAuditRepository;
+import com.poc.alerts.entity.KeyRoutingConfig;
 import com.poc.alerts.service.AuditService;
-import com.poc.alerts.service.TemplateProcessorService;
-import com.poc.alerts.util.PayloadParser;
+import com.poc.alerts.service.RoutingService;
+import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.PocBankUtil;
 
-@Component
+@Service
 public class SmsConsumer {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(SmsConsumer.class);
+	private static final Logger log = LoggerFactory.getLogger(SmsConsumer.class);
+	private static final Logger auditLog = LoggerFactory.getLogger("consumer_audit");
 
-    private static final Logger templateLog =
-            LoggerFactory.getLogger("TEMPLATE_PROCESS_LOGGER");
+	private final AuditService auditService;
+	private final RoutingService routingService;
 
-    @Autowired
-    private ProcessedAlertAuditRepository processedAlertAuditRepository;
-    @Autowired
-    private AuditService auditService;
+	public SmsConsumer(AuditService auditService, RoutingService routingService) {
+		this.auditService = auditService;
+		this.routingService = routingService;
+	}
 
-    @Autowired
-    private TemplateProcessorService templateProcessorService;
+	@KafkaListener(topics = "notifications.events", groupId = "notification-cg-sms")
+	public void consume(String payload, @Headers Map<String, Object> headers) {
 
-    @KafkaListener(
-            topics="notifications.events",
-            groupId="sms-consumer-group")
-    public void consume(String message, ConsumerRecord<String,String> record) {
+		try {
 
-        log.info("=====================================================");
-        log.info("SMS CONSUMER TRIGGERED");
-        log.info("Kafka message received from topic: notifications.events");
+			log.info("Message received for SMS consumer");
 
-        try {
+			String messageType = new String((byte[]) headers.get("alert-type"));
+			String eventId = new String((byte[]) headers.get("event-id"));
 
-            // HEADER VALIDATION
-            String eventTypeHeader = HeaderExtractor.extractHeader(record, "event-type");
-            String alertTypeHeader = HeaderExtractor.extractHeader(record, "alert-type");
+			log.info("SMS -> eventId: {},messageType: {}", eventId, messageType);
 
-            log.info("Header EventType : {}", eventTypeHeader);
-            log.info("Header AlertType : {}", alertTypeHeader);
+			if (messageType.equalsIgnoreCase("SMS") || messageType.equals("BOTH")) {
 
-            if (!"sms".equalsIgnoreCase(alertTypeHeader)) {
+				messageType = "SMS";
 
-                log.info("Message not meant for SMS consumer. Skipping.");
-                log.info("=====================================================");
-                return;
-            }
+				// Audit log
+				auditLog.info("Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
 
-            String type = PayloadParser.extractType(message);
+				// Validate headers
+				log.info("*** Header Validation Starts ***");
+				String headerValidationResul = HeaderValidator.validate(headers);
+				if (PocBankUtil.isNullOrEmpty(headerValidationResul)) {
+					log.info("*** Header Validation Ends ***");
 
-            log.info("Extracted MessageType from payload: {}", type);
+					// Step Duplicate check
+					if (auditService.isAlreadyProcessed(eventId, messageType)) {
 
-            if(!"SMS".equalsIgnoreCase(type) &&
-               !"BOTH".equalsIgnoreCase(type)) {
+						auditLog.warn("Duplicate message detected. Skipping processing for eventId={} messageType={}",
+								eventId, messageType);
+						// Save DB audit
+						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
+						return;
+					}
 
-                log.info("MessageType is not SMS/BOTH → skipping SMS consumer");
-                log.info("=====================================================");
-                return;
-            }
+					// Save DB audit
+					auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
 
-            log.info("Message eligible for SMS processing");
+					// 🔹 Validate routing config
+					String alertType = PocBankUtil.getAlertType(payload);
+					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
 
-            // STEP 1 AUDIT
-            log.info("Saving message to AUDIT table");
+					log.info("KeyRoutingConfig config: {}", config);
 
-            auditService.saveAudit("notifications.events", message);
+				} else {
+					log.info("Invalid or Missing Header details {}", headerValidationResul);
+					return;
+				}
+			}
 
-            log.info("Audit record successfully inserted");
-            
-            String eventId = PayloadParser.extractEventId(message);
-            type = "SMS";
+		} catch (Exception e) {
 
-            boolean alreadyProcessed =
-                    processedAlertAuditRepository
-                    .existsByEventIdAndMessageType(eventId, type);
+			log.error("Error processing message", e);
 
-            if (alreadyProcessed) {
+		}
 
-                log.info("Duplicate event detected for EventId : {} and MessageType : {}",
-                        eventId, type);
-
-                return;
-            }
-
-            // STEP 2 EXTRACT FIELDS
-            log.info("Extracting event details from payload");
-
-            String eventType = PayloadParser.extractEventType(message);
-            String alertType = PayloadParser.extractAlertType(message);
-
-            log.info("EventType : {}", eventType);
-            log.info("AlertType : {}", alertType);
-
-            // STEP 3 TEMPLATE PROCESS
-            log.info("Starting SMS template processing");
-
-            String result =
-                    templateProcessorService.processTemplate(
-                            message,
-                            eventType,
-                            alertType,
-                            "SMS");
-
-            templateLog.info("Generated SMS Message:");
-            templateLog.info(result);
-
-            log.info("SMS template generated successfully");
-
-            log.info("SMS notification processing completed");
-
-        }
-        catch(Exception e){
-
-            log.error("Error occurred while processing SMS notification", e);
-        }
-
-        log.info("=====================================================");
-    }
+	}
 }

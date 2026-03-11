@@ -1,110 +1,88 @@
 package com.poc.alerts.consumer;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Component;
+import org.springframework.messaging.handler.annotation.Headers;
+import org.springframework.stereotype.Service;
 
-import com.poc.alerts.header.HeaderExtractor;
-import com.poc.alerts.repository.ProcessedAlertAuditRepository;
+import com.poc.alerts.entity.KeyRoutingConfig;
 import com.poc.alerts.service.AuditService;
-import com.poc.alerts.service.TemplateProcessorService;
-import com.poc.alerts.util.PayloadParser;
+import com.poc.alerts.service.RoutingService;
+import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.PocBankUtil;
 
-@Component
+@Service
 public class EmailConsumer {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(EmailConsumer.class);
+	private static final Logger log = LoggerFactory.getLogger(EmailConsumer.class);
+	private static final Logger auditLog = LoggerFactory.getLogger("consumer_audit");
 
-    @Autowired
-    private AuditService auditService;
+	private final AuditService auditService;
+	private final RoutingService routingService;
 
-    @Autowired
-    private TemplateProcessorService templateProcessorService;
-    
-    @Autowired
-    private ProcessedAlertAuditRepository processedAlertAuditRepository;
+	public EmailConsumer(AuditService auditService, RoutingService routingService) {
+		this.auditService = auditService;
+		this.routingService = routingService;
+	}
 
-    @KafkaListener(
-            topics = "notifications.events",
-            groupId = "email-consumer-group")
-    public void consume(String message, ConsumerRecord<String, String> record) {
+	@KafkaListener(topics = "notifications.events", groupId = "notification-cg-email")
+	public void consume(String payload, @Headers Map<String, Object> headers) {
 
-        log.info("--------------------------------------------------");
-        log.info("Kafka message received for EMAIL processing");
+		try {
 
-        try {
+			log.info("Message received for EMAIL consumer");
 
-            // HEADER VALIDATION
-            String eventTypeHeader = HeaderExtractor.extractHeader(record, "event-type");
-            String alertTypeHeader = HeaderExtractor.extractHeader(record, "alert-type");
+			String messageType = new String((byte[]) headers.get("alert-type"));
+			String eventId = new String((byte[]) headers.get("event-id"));
 
-            log.info("Header EventType : {}", eventTypeHeader);
-            log.info("Header AlertType : {}", alertTypeHeader);
+			log.info("Email -> eventId: {},messageType: {}", eventId, messageType);
 
-            if (!"EMAIL".equalsIgnoreCase(alertTypeHeader)) {
-                log.info("Message not meant for EMAIL consumer. Skipping.");
-                return;
-            }
+			if (messageType.equalsIgnoreCase("EMAIL") || messageType.equals("BOTH")) {
 
-            String messageType = PayloadParser.extractType(message);
+				messageType = "EMAIL";
 
-            log.info("Extracted MessageType from payload: {}", messageType);
+				// Audit log
+				auditLog.info("Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
 
-            if (!"EMAIL".equalsIgnoreCase(messageType)
-                    && !"BOTH".equalsIgnoreCase(messageType)) {
+				// Validate headers
+				log.info("*** Header Validation Starts ***");
+				String headerValidationResul = HeaderValidator.validate(headers);
+				if (PocBankUtil.isNullOrEmpty(headerValidationResul)) {
+					log.info("*** Header Validation Ends ***");
 
-                log.info("MessageType is not EMAIL/BOTH. Skipping message");
-                return;
-            }
+					// Step Duplicate check
+					if (auditService.isAlreadyProcessed(eventId, messageType)) {
 
-            log.info("Saving consumer audit entry");
+						auditLog.warn("Duplicate message detected. Skipping processing for eventId={} messageType={}",
+								eventId, messageType);
+						// Save DB audit
+						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
+						return;
+					}
 
-            auditService.saveAudit("notifications.events", message);
+					// Save DB audit
+					auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
+					
+					// 🔹 Validate routing config
+					String alertType=PocBankUtil.getAlertType(payload);
+					KeyRoutingConfig config =
+			                routingService.getRoutingConfig(messageType, alertType);
 
-            log.info("Audit entry successfully stored");
+			        log.info("KeyRoutingConfig config: {}",config);
 
-            String eventId = PayloadParser.extractEventId(message);
-            messageType = "EMAIL";
+				} else {
+					log.info("Invalid or Missing Header details {}", headerValidationResul);
+					return;
+				}
+			}
+		} catch (Exception e) {
 
-            boolean alreadyProcessed =
-                    processedAlertAuditRepository
-                    .existsByEventIdAndMessageType(eventId, messageType);
+			log.error("Error processing message", e);
 
-            if (alreadyProcessed) {
+		}
 
-                log.info("Duplicate event detected for EventId : {} and MessageType : {}",
-                        eventId, messageType);
-
-                return;
-            }
-
-            String eventType = PayloadParser.extractEventType(message);
-            String alertType = PayloadParser.extractAlertType(message);
-
-            log.info("EventType extracted: {}", eventType);
-            log.info("AlertType extracted: {}", alertType);
-
-            log.info("Starting template processing for EMAIL");
-
-            templateProcessorService.processTemplate(
-                    message,
-                    eventType,
-                    alertType,
-                    "EMAIL"
-            );
-
-            log.info("Template processing completed successfully");
-
-        } catch (Exception ex) {
-
-            log.error("Error occurred while processing EMAIL notification", ex);
-        }
-
-        log.info("EMAIL processing completed");
-        log.info("--------------------------------------------------");
-    }
-}	
+	}
+}
