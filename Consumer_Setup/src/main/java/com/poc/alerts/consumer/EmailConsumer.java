@@ -9,8 +9,10 @@ import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.stereotype.Service;
 
 import com.poc.alerts.entity.KeyRoutingConfig;
+import com.poc.alerts.entity.TemplateMst;
 import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.RoutingService;
+import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
 import com.poc.alerts.util.PocBankUtil;
 
@@ -22,10 +24,12 @@ public class EmailConsumer {
 
 	private final AuditService auditService;
 	private final RoutingService routingService;
-
-	public EmailConsumer(AuditService auditService, RoutingService routingService) {
+	private final TemplateService templateService;
+	
+	public EmailConsumer(AuditService auditService, RoutingService routingService,TemplateService templateService) {
 		this.auditService = auditService;
 		this.routingService = routingService;
+		this.templateService = templateService;
 	}
 
 	@KafkaListener(topics = "notifications.events", groupId = "notification-cg-email")
@@ -48,15 +52,15 @@ public class EmailConsumer {
 				auditLog.info("Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
 
 				// Validate headers
-				log.info("*** Header Validation Starts ***");
+				log.info("*** EMAIL | Header Validation Starts ***");
 				String headerValidationResul = HeaderValidator.validate(headers);
 				if (PocBankUtil.isNullOrEmpty(headerValidationResul)) {
-					log.info("*** Header Validation Ends ***");
+					log.info("*** EMAIL | Header Validation Ends ***");
 
 					// Step Duplicate check
 					if (auditService.isAlreadyProcessed(eventId, messageType)) {
 
-						auditLog.warn("Duplicate message detected. Skipping processing for eventId={} messageType={}",
+						auditLog.warn(" EMAIL | Duplicate message detected. Skipping processing for eventId={} messageType={}",
 								eventId, messageType);
 						// Save DB audit
 						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
@@ -71,10 +75,18 @@ public class EmailConsumer {
 					KeyRoutingConfig config =
 			                routingService.getRoutingConfig(messageType, alertType);
 
-			        log.info("KeyRoutingConfig config: {}",config);
+			        log.info("EMAIL | KeyRoutingConfig config: {}",config);
+			        log.info("EMAIL | Payload Actual data messageType: {}, alertType:{}",messageType,alertType);
+			        log.info("EMAIL | Result from config data messageType: {}, alertType:{}",config.getMessageType(),config.getAlertType());
+
+			        TemplateMst template =
+			                templateService.getTemplate(messageType,alertType);
+
+			        log.info(" EMAIL | TemplateId : {}",template);
+			        log.info(" EMAIL | Template Variables : {}",template.getTemplateVariable());
 
 				} else {
-					log.info("Invalid or Missing Header details {}", headerValidationResul);
+					log.info(" EMAIL | Invalid or Missing Header details {}", headerValidationResul);
 					return;
 				}
 			}
