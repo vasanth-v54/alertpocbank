@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.poc.alerts.constants.AppConstants;
+import com.poc.alerts.entity.DltLog;
+import com.poc.alerts.strategy.impl.FileDltLoggingStrategy;
+import com.poc.alerts.util.DltLoggerUtil;
 
 @Service
 public class KafkaProducerService {
@@ -43,11 +46,11 @@ public class KafkaProducerService {
          */
         JsonNode headerNode = mapper.readTree(headerJson);
 
-        String businessKey = headerNode.path("businessKey").asText();
-        String eventType   = headerNode.path("eventType").asText();
-        String eventId     = headerNode.path("eventId").asText();
-        String source      = headerNode.path("eventSourceId").asText();
-        String status      = headerNode.path("status").asText();
+        String businessKey = headerNode.path("businessKey").asText(null);
+        String eventType   = headerNode.path("eventType").asText(null);
+        String eventId     = headerNode.path("eventId").asText(null);
+        String source      = headerNode.path("eventSourceId").asText(null);
+        String status      = headerNode.path("status").asText(null);
 
         log.info("BusinessKey : {}", businessKey);
         log.info("EventType   : {}", eventType);
@@ -64,18 +67,18 @@ public class KafkaProducerService {
 
         /*
          * -----------------------------
-         * Add Kafka Headers
+         * Add Kafka Headers (SAFE)
          * -----------------------------
          */
-        
-        String alertType=getMessageType(payloadJson);
-        log.info("payload alertType: {}",alertType);
-        
-        record.headers().add("event-type", eventType.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("event-id", eventId.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("source", source.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("status", status.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("alert-type", alertType.getBytes(StandardCharsets.UTF_8));
+
+        String alertType = getMessageType(payloadJson);
+        log.info("payload alertType: {}", alertType);
+
+        addHeaderIfPresent(record, "event-type", eventType);
+        addHeaderIfPresent(record, "event-id", eventId);
+        addHeaderIfPresent(record, "source", source);
+        addHeaderIfPresent(record, "status", status);
+        addHeaderIfPresent(record, "alert-type", alertType);
 
         /*
          * -----------------------------
@@ -112,7 +115,7 @@ public class KafkaProducerService {
 
                         auditLog.info(
                                 "HEADERS={} | EVENT=KAFKA_PUBLISHED | timestamp={} | payloadId={} | payloadType={} | topic={} | partition={} | offset={} | payload={}",
-                                record,
+                                record.headers(),
                                 timestamp,
                                 payloadId,
                                 payloadType,
@@ -128,19 +131,70 @@ public class KafkaProducerService {
 
                         auditLog.error(
                                 "HEADERS={} | EVENT=KAFKA_PUBLISH_FAILED | payloadId={} | payloadType={} | topic={} | error={} | payload={}",
-                                record,
+                                record.headers(),
                                 payloadId,
                                 payloadType,
                                 AppConstants.TOPIC,
                                 ex != null ? ex.getMessage() : "unknown",
                                 payloadJson
                         );
+
+                        /*
+                         * -----------------------------------------
+                         * PRODUCER DLT LOG
+                         * -----------------------------------------
+                         */
+
+                        try {
+
+                            DltLog dltLog = DltLoggerUtil.build(
+                                    "ProducerService",
+                                    "500",
+                                    record.headers().toString(),
+                                    eventId,
+                                    ex != null ? ex.getMessage() : "Unknown error",
+                                    payloadJson
+                            );
+
+                            new FileDltLoggingStrategy().log(dltLog);
+
+                        } catch (Exception dltEx) {
+
+                            log.error("DLT logging failed", dltEx);
+                        }
                     }
                 });
     }
-    
+
+    /*
+     * -----------------------------------------
+     * Safe Header Method
+     * -----------------------------------------
+     */
+
+    private void addHeaderIfPresent(ProducerRecord<String, String> record,
+                                    String key,
+                                    String value) {
+
+        if (value != null && !value.trim().isEmpty()) {
+
+            record.headers().add(
+                    key,
+                    value.getBytes(StandardCharsets.UTF_8)
+            );
+        }
+    }
+
+    /*
+     * -----------------------------------------
+     * Extract MessageType
+     * -----------------------------------------
+     */
+
     public static String getMessageType(String json) {
+
         try {
+
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(json);
 
@@ -150,6 +204,7 @@ public class KafkaProducerService {
                     .asText();
 
         } catch (Exception e) {
+
             return null;
         }
     }

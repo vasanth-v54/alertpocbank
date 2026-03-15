@@ -8,11 +8,15 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.stereotype.Service;
 
+import com.poc.alerts.entity.DltLog;
 import com.poc.alerts.entity.KeyRoutingConfig;
 import com.poc.alerts.entity.TemplateMst;
 import com.poc.alerts.service.AuditService;
+import com.poc.alerts.service.DltLoggerService;
 import com.poc.alerts.service.RoutingService;
 import com.poc.alerts.service.TemplateService;
+import com.poc.alerts.strategy.impl.FileDltLoggingStrategy;
+import com.poc.alerts.util.DltLoggerUtil;
 import com.poc.alerts.util.HeaderValidator;
 import com.poc.alerts.util.PocBankUtil;
 
@@ -25,8 +29,11 @@ public class SmsConsumer {
 	private final AuditService auditService;
 	private final RoutingService routingService;
 	private final TemplateService templateService;
-	
-	public SmsConsumer(AuditService auditService, RoutingService routingService,TemplateService templateService) {
+
+	public SmsConsumer(AuditService auditService,
+					   RoutingService routingService,
+					   TemplateService templateService) {
+
 		this.auditService = auditService;
 		this.routingService = routingService;
 		this.templateService = templateService;
@@ -39,65 +46,124 @@ public class SmsConsumer {
 
 			log.info("Message received for SMS consumer");
 
+			/*
+			 * -------------------------------------------------
+			 * STEP 1 : HEADER VALIDATION (FIRST)
+			 * -------------------------------------------------
+			 */
+
+			String headerValidationResult = HeaderValidator.validate(headers);
+
+			if (!PocBankUtil.isNullOrEmpty(headerValidationResult)) {
+
+				log.error("SMS | Invalid or Missing Header {}", headerValidationResult);
+
+				String eventId = headers.get("event-id") != null
+						? new String((byte[]) headers.get("event-id"))
+						: "UNKNOWN_EVENT_ID";
+
+				DltLog logObj = DltLoggerUtil.build(
+						"ConsumerService",
+						"400",
+						HeaderValidator.extractHeaders(headers).toString(),
+						eventId,
+						"Header validation failed: " + headerValidationResult,
+						payload
+				);
+
+				new DltLoggerService(new FileDltLoggingStrategy()).log(logObj);
+				return;
+			}
+
+			/*
+			 * -------------------------------------------------
+			 * STEP 2 : EXTRACT HEADERS
+			 * -------------------------------------------------
+			 */
+
 			String messageType = new String((byte[]) headers.get("alert-type"));
 			String eventId = new String((byte[]) headers.get("event-id"));
 
-			log.info("SMS -> eventId: {},messageType: {}", eventId, messageType);
+			log.info("SMS -> eventId: {}, messageType: {}", eventId, messageType);
 
-			if (messageType.equalsIgnoreCase("SMS") || messageType.equals("BOTH")) {
+			if (messageType.equalsIgnoreCase("SMS") || messageType.equalsIgnoreCase("BOTH")) {
 
 				messageType = "SMS";
 
-				// Audit log
-				auditLog.info("SMS | Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
+				auditLog.info("SMS | Consumed EventId={} Type={} Payload={}",
+						eventId, messageType, payload);
 
-				// Validate headers
-				log.info("*** Header Validation Starts ***");
-				String headerValidationResult = HeaderValidator.validate(headers);
-				if (PocBankUtil.isNullOrEmpty(headerValidationResult)) {
-					log.info("*** Header Validation Ends ***");
+				/*
+				 * -------------------------------------------------
+				 * STEP 3 : DUPLICATE CHECK
+				 * -------------------------------------------------
+				 */
 
-					// Step Duplicate check
-					if (auditService.isAlreadyProcessed(eventId, messageType)) {
+				if (auditService.isAlreadyProcessed(eventId, messageType)) {
 
-						auditLog.warn("Duplicate message detected. Skipping processing for eventId={} messageType={}",
-								eventId, messageType);
-						// Save DB audit
-						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
-						return;
-					}
+					auditLog.warn("SMS | Duplicate message detected for eventId={}", eventId);
 
-					// Save DB audit
-					auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
+					auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
 
-					// 🔹 Validate routing config
-					String alertType = PocBankUtil.getAlertType(payload);
-					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
+					DltLog logObj = DltLoggerUtil.build(
+							"ConsumerService",
+							"409",
+							HeaderValidator.extractHeaders(headers).toString(),
+							eventId,
+							"Duplicate message detected",
+							payload
+					);
 
-					log.info("KeyRoutingConfig config: {}", config);
-					log.info("KeyRoutingConfig config: {}",config);
-			        log.info("SMS | Payload Actual data messageType: {}, alertType:{}",messageType,alertType);
-			        log.info("SMS | Result from config data messageType: {}, alertType:{}",config.getMessageType(),config.getAlertType());
-
-			        TemplateMst template =
-			                templateService.getTemplate(messageType,alertType);
-
-			        log.info("TemplateId : {}",template);
-			        log.info("Template Variables : {}",template.getTemplateVariable());
-
-			        
-
-				} else {
-					log.info("Invalid or Missing Header details {}", headerValidationResult);
+					new DltLoggerService(new FileDltLoggingStrategy()).log(logObj);
 					return;
 				}
+
+				/*
+				 * -------------------------------------------------
+				 * STEP 4 : NORMAL PROCESSING
+				 * -------------------------------------------------
+				 */
+
+				auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
+
+				String alertType = PocBankUtil.getAlertType(payload);
+
+				KeyRoutingConfig config =
+						routingService.getRoutingConfig(messageType, alertType);
+
+				log.info("SMS | Routing Config : {}", config);
+
+				TemplateMst template =
+						templateService.getTemplate(messageType, alertType);
+
+				log.info("SMS | Template : {}", template);
 			}
 
 		} catch (Exception e) {
 
-			log.error("Error processing message", e);
+			log.error("SMS | Error processing message", e);
 
+			try {
+
+				String eventId = headers.get("event-id") != null
+						? new String((byte[]) headers.get("event-id"))
+						: "UNKNOWN_EVENT_ID";
+
+				DltLog logObj = DltLoggerUtil.build(
+						"ConsumerService",
+						"500",
+						HeaderValidator.extractHeaders(headers).toString(),
+						eventId,
+						e.getMessage(),
+						payload
+				);
+
+				new DltLoggerService(new FileDltLoggingStrategy()).log(logObj);
+
+			} catch (Exception dltEx) {
+
+				log.error("Failed to write DLT log", dltEx);
+			}
 		}
-
 	}
 }
