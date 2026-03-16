@@ -14,6 +14,7 @@ import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.RoutingService;
 import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.PayloadVariableExtractor;
 import com.poc.alerts.util.PocBankUtil;
 
 @Service
@@ -83,7 +84,14 @@ public class SmsConsumer {
 			                templateService.getTemplate(messageType,alertType);
 
 			        log.info("TemplateId : {}",template);
-			        log.info("Template Variables : {}",template.getTemplateVariable());
+			        log.info("Template Variables : {},Payload Data : {}",template.getTemplateVariable(),payload);
+			        
+			        String templateVariables = template.getTemplateVariable();
+
+			        Map<String,Object> templateData =
+			                PayloadVariableExtractor.extractTemplateData(payload, templateVariables);
+
+			        log.info("SMS | Template Data : {}", templateData);
 
 			        
 

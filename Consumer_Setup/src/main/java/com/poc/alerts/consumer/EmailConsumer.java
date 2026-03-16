@@ -14,6 +14,7 @@ import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.RoutingService;
 import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.PayloadVariableExtractor;
 import com.poc.alerts.util.PocBankUtil;
 
 @Service
@@ -84,6 +85,13 @@ public class EmailConsumer {
 
 			        log.info(" EMAIL | TemplateId : {}",template);
 			        log.info(" EMAIL | Template Variables : {}",template.getTemplateVariable());
+			        
+			        String templateVariables = template.getTemplateVariable();
+
+			        Map<String,Object> templateData =
+			                PayloadVariableExtractor.extractTemplateData(payload, templateVariables);
+
+			        log.info("EMAIL | Template Data : {}", templateData);
 
 				} else {
 					log.info(" EMAIL | Invalid or Missing Header details {}", headerValidationResul);
