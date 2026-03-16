@@ -1,6 +1,5 @@
 package com.poc.alerts.util;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,26 +26,29 @@ public class HeaderValidator {
 			String headerValue = null;
 
 			if (value instanceof byte[]) {
-
-				headerValue = new String((byte[]) value, StandardCharsets.UTF_8);
-
+				headerValue = new String((byte[]) value);
 			} else if (value != null) {
-
 				headerValue = value.toString();
 			}
 
-			log.info("Header [{}] value: {}", header, headerValue);
+			log.info("Header {} value: {}", header, headerValue);
 
-			/*
-			 * -------------------------------------
-			 * Validation: Null OR Empty OR Blank
-			 * -------------------------------------
-			 */
 			if (headerValue == null || headerValue.trim().isEmpty()) {
 
-				log.error("Header validation failed for header: {}", header);
+				// Special case for event-id
+				if ("event-id".equals(header)) {
+					return "Payload validation failed: Missing or Empty eventId";
+				}
 
-				return "Missing or Empty header: " + header;
+				if ("event-type".equals(header)) {
+					return "Payload validation failed: Missing or Empty eventType";
+				}
+
+				if ("alert-type".equals(header)) {
+					return "Payload validation failed: Missing or Empty MessageType";
+				}
+
+				return "Payload validation failed: Missing or Empty " + header;
 			}
 		}
 
@@ -60,14 +62,10 @@ public class HeaderValidator {
 		headers.forEach((key, value) -> {
 
 			if (value instanceof byte[]) {
-
-				result.put(key, new String((byte[]) value, StandardCharsets.UTF_8));
-
+				result.put(key, new String((byte[]) value));
 			} else if (value != null) {
-
 				result.put(key, value.toString());
 			}
-
 		});
 
 		return result;
