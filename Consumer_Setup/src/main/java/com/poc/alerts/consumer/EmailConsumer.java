@@ -10,10 +10,12 @@ import org.springframework.stereotype.Service;
 
 import com.poc.alerts.entity.KeyRoutingConfig;
 import com.poc.alerts.entity.TemplateMst;
+import com.poc.alerts.model.NotificationRequest;
 import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.RoutingService;
 import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.NotificationRequestBuilder;
 import com.poc.alerts.util.PayloadVariableExtractor;
 import com.poc.alerts.util.PocBankUtil;
 
@@ -92,6 +94,16 @@ public class EmailConsumer {
 			                PayloadVariableExtractor.extractTemplateData(payload, templateVariables);
 
 			        log.info("EMAIL | Template Data : {}", templateData);
+			        
+			        NotificationRequest request =
+			                NotificationRequestBuilder.buildRequest(
+			                        "9876543210",
+			                        "customer@test.com",
+			                        template.getTemplateId(),
+			                        templateData
+			                );
+
+			        auditLog.info("EMAIL | Final Notification Request : {}", request);
 
 				} else {
 					log.info(" EMAIL | Invalid or Missing Header details {}", headerValidationResul);
