@@ -54,9 +54,7 @@ public class KafkaProducerService {
          */
 
         try {
-
             headerNode = mapper.readTree(headerJson);
-
         } catch (Exception e) {
 
             log.error("Invalid JSON payload", e);
@@ -71,7 +69,7 @@ public class KafkaProducerService {
 
         /*
          * -----------------------------------------
-         * EXTRACT VALUES SAFELY
+         * EXTRACT HEADER VALUES
          * -----------------------------------------
          */
 
@@ -87,11 +85,11 @@ public class KafkaProducerService {
 
         /*
          * -----------------------------------------
-         * VALIDATION
+         * VALIDATE HEADER FIELDS
          * -----------------------------------------
          */
 
-        if (eventId == null || eventId.trim().isEmpty()) {
+        if (eventId == null) {
 
             writeDlt(payloadId,
                     "UNKNOWN_EVENT_ID",
@@ -101,11 +99,29 @@ public class KafkaProducerService {
             return;
         }
 
-        if (businessKey == null || businessKey.trim().isEmpty()) {
+        if (businessKey == null) {
 
             writeDlt(payloadId,
                     eventId,
                     "Payload validation failed: Missing businessKey",
+                    payloadJson);
+
+            return;
+        }
+
+        /*
+         * -----------------------------------------
+         * VALIDATE customFieldDetails FIELDS
+         * -----------------------------------------
+         */
+
+        String invalidField = validateCustomFields(payloadJson);
+
+        if (invalidField != null) {
+
+            writeDlt(payloadId,
+                    eventId,
+                    "Payload validation failed: Missing or Empty field -> " + invalidField,
                     payloadJson);
 
             return;
@@ -135,7 +151,7 @@ public class KafkaProducerService {
 
         /*
          * -----------------------------------------
-         * SEND TO KAFKA
+         * SEND MESSAGE
          * -----------------------------------------
          */
 
@@ -171,7 +187,57 @@ public class KafkaProducerService {
 
     /*
      * -----------------------------------------
-     * SAFE JSON VALUE EXTRACTION
+     * VALIDATE CUSTOM FIELDS
+     * -----------------------------------------
+     */
+
+    private String validateCustomFields(String payloadJson) {
+
+        try {
+
+            JsonNode root = mapper.readTree(payloadJson);
+
+            JsonNode customFields =
+                    root.path("customFieldDetails");
+
+            String[] requiredFields = {
+                    "customer_id",
+                    "customer_name",
+                    "timestamp",
+                    "amount",
+                    "loan_account",
+                    "txn_ref",
+                    "days_overdue",
+                    "min_amount_due",
+                    "grace_date",
+                    "loan_ref",
+                    "beneficiary_name",
+                    "beneficiary_id"
+            };
+
+            for (String field : requiredFields) {
+
+                JsonNode node = customFields.get(field);
+
+                if (node == null ||
+                        node.isNull() ||
+                        node.asText().trim().isEmpty()) {
+
+                    return field;
+                }
+            }
+
+        } catch (Exception e) {
+
+            return "INVALID_JSON";
+        }
+
+        return null;
+    }
+
+    /*
+     * -----------------------------------------
+     * SAFE JSON TEXT EXTRACTION
      * -----------------------------------------
      */
 
@@ -185,7 +251,10 @@ public class KafkaProducerService {
 
         String value = valueNode.asText();
 
-        if (value == null || value.trim().isEmpty() || "null".equalsIgnoreCase(value.trim())) {
+        if (value == null ||
+                value.trim().isEmpty() ||
+                "null".equalsIgnoreCase(value.trim())) {
+
             return null;
         }
 
@@ -226,7 +295,7 @@ public class KafkaProducerService {
 
     /*
      * -----------------------------------------
-     * SAFE HEADER ADD
+     * ADD HEADER
      * -----------------------------------------
      */
 
@@ -245,7 +314,7 @@ public class KafkaProducerService {
 
     /*
      * -----------------------------------------
-     * GET MESSAGE TYPE
+     * EXTRACT MessageType
      * -----------------------------------------
      */
 
