@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -56,5 +57,45 @@ class RoutingServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> routingService.getRoutingConfig(messageType, alertType));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when messageType is null")
+    void testGetRoutingConfig_NullMessageType() {
+        when(repository.findByMessageTypeAndAlertTypeAndIsActive(null, "FUND_TRANSFER", true))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> routingService.getRoutingConfig(null, "FUND_TRANSFER"));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when alertType is null")
+    void testGetRoutingConfig_NullAlertType() {
+        when(repository.findByMessageTypeAndAlertTypeAndIsActive("SMS", null, true))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> routingService.getRoutingConfig("SMS", null));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when messageType is empty")
+    void testGetRoutingConfig_EmptyMessageType() {
+        when(repository.findByMessageTypeAndAlertTypeAndIsActive("", "FUND_TRANSFER", true))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> routingService.getRoutingConfig("", "FUND_TRANSFER"));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when alertType is empty")
+    void testGetRoutingConfig_EmptyAlertType() {
+        when(repository.findByMessageTypeAndAlertTypeAndIsActive("SMS", "", true))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> routingService.getRoutingConfig("SMS", ""));
     }
 }
