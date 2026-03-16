@@ -9,8 +9,10 @@ import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.stereotype.Service;
 
 import com.poc.alerts.entity.KeyRoutingConfig;
+import com.poc.alerts.entity.TemplateMst;
 import com.poc.alerts.service.AuditService;
 import com.poc.alerts.service.RoutingService;
+import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
 import com.poc.alerts.util.PocBankUtil;
 
@@ -22,10 +24,12 @@ public class SmsConsumer {
 
 	private final AuditService auditService;
 	private final RoutingService routingService;
-
-	public SmsConsumer(AuditService auditService, RoutingService routingService) {
+	private final TemplateService templateService;
+	
+	public SmsConsumer(AuditService auditService, RoutingService routingService,TemplateService templateService) {
 		this.auditService = auditService;
 		this.routingService = routingService;
+		this.templateService = templateService;
 	}
 
 	@KafkaListener(topics = "notifications.events", groupId = "notification-cg-sms")
@@ -45,12 +49,12 @@ public class SmsConsumer {
 				messageType = "SMS";
 
 				// Audit log
-				auditLog.info("Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
+				auditLog.info("SMS | Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
 
 				// Validate headers
 				log.info("*** Header Validation Starts ***");
-				String headerValidationResul = HeaderValidator.validate(headers);
-				if (PocBankUtil.isNullOrEmpty(headerValidationResul)) {
+				String headerValidationResult = HeaderValidator.validate(headers);
+				if (PocBankUtil.isNullOrEmpty(headerValidationResult)) {
 					log.info("*** Header Validation Ends ***");
 
 					// Step Duplicate check
@@ -71,9 +75,20 @@ public class SmsConsumer {
 					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
 
 					log.info("KeyRoutingConfig config: {}", config);
+					log.info("KeyRoutingConfig config: {}",config);
+			        log.info("SMS | Payload Actual data messageType: {}, alertType:{}",messageType,alertType);
+			        log.info("SMS | Result from config data messageType: {}, alertType:{}",config.getMessageType(),config.getAlertType());
+
+			        TemplateMst template =
+			                templateService.getTemplate(messageType,alertType);
+
+			        log.info("TemplateId : {}",template);
+			        log.info("Template Variables : {}",template.getTemplateVariable());
+
+			        
 
 				} else {
-					log.info("Invalid or Missing Header details {}", headerValidationResul);
+					log.info("Invalid or Missing Header details {}", headerValidationResult);
 					return;
 				}
 			}
