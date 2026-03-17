@@ -15,7 +15,7 @@ public class RoutingService {
 
 	public KeyRoutingConfig getRoutingConfig(String messageType, String alertType) {
 
-		return repository.findByMessageTypeAndAlertTypeAndIsActive(messageType, alertType, true)
+		return repository.findFirstByMessageTypeAndAlertTypeAndIsActive(messageType, alertType, true)
 				.orElseThrow(() -> new RuntimeException("Routing configuration not found"));
 	}
 }

@@ -44,9 +44,9 @@ public class HeaderValidator {
 					return "Payload validation failed: Missing or Empty eventType";
 				}
 
-				if ("alert-type".equals(header)) {
-					return "Payload validation failed: Missing or Empty MessageType";
-				}
+				/*if ("alert-type".equals(header)) {
+					return "Payload validation failed: Missing or Empty AlertType";
+				}*/
 
 				return "Payload validation failed: Missing or Empty " + header;
 			}

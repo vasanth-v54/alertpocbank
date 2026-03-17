@@ -16,7 +16,7 @@ public class TemplateService {
     public TemplateMst getTemplate(String messageType,String alertType){
 
         return repository
-                .findByMessageTypeAndAlertTypeAndIsActive(messageType,alertType,true)
+                .findFirstByMessageTypeAndAlertTypeAndIsActive(messageType,alertType,true)
                 .orElseThrow(() -> new RuntimeException("Template not found"));
     }
 }

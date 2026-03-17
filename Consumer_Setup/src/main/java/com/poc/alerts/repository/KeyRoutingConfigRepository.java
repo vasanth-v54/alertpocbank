@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface KeyRoutingConfigRepository extends JpaRepository<KeyRoutingConfig, Long> {
 
-    Optional<KeyRoutingConfig> findByMessageTypeAndAlertTypeAndIsActive(
+    Optional<KeyRoutingConfig> findFirstByMessageTypeAndAlertTypeAndIsActive(
             String messageType,
             String alertType,
             Boolean isActive

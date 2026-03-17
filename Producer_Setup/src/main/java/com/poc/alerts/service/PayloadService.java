@@ -48,50 +48,70 @@ public class PayloadService {
 
         for (PayloadMst payload : payloadList) {
 
-            log.info("-----------------------------------------------");
-            log.info("Processing payload id : {}", payload.getId());
-            log.info("Payload Type : {}", payload.getPayloadType());
+            try {
+                log.info("-----------------------------------------------");
+                log.info("Processing payload id : {}", payload.getId());
+                log.info("Payload Type : {}", payload.getPayloadType());
 
-            /*
-             * FULL JSON from DB
-             */
-            String fullJson = payload.getPayload();
+                /*
+                 * FULL JSON from DB
+                 */
+                String fullJson = payload.getPayload();
 
-            JsonNode rootNode = mapper.readTree(fullJson);
+                JsonNode rootNode = mapper.readTree(fullJson);
 
-            /*
-             * Extract payload section
-             */
-            JsonNode payloadNode = rootNode.path("payload");
+                /*
+                 * Extract MessageType (which will become alert-type header)
+                 */
+                JsonNode messageTypeNode = rootNode.path("payload")
+                                                   .path("customFieldDetails")
+                                                   .path("MessageType");
+                String messageType = (messageTypeNode != null && !messageTypeNode.isNull()) ? messageTypeNode.asText() : null;
 
-            String payloadJson = mapper.writeValueAsString(payloadNode);
+                /*
+                 * Extract payload section
+                 */
+                JsonNode payloadNode = rootNode.path("payload");
 
-            /*
-             * Extract header fields (everything except payload)
-             */
-            Map<String, Object> headerMap = mapper.convertValue(rootNode, Map.class);
-            headerMap.remove("payload");
+                String payloadJson = mapper.writeValueAsString(payloadNode);
 
-            String headerJson = mapper.writeValueAsString(headerMap);
+                /*
+                 * Extract header fields (everything except payload)
+                 */
+                Map<String, Object> headerMap = mapper.convertValue(rootNode, Map.class);
+                headerMap.remove("payload");
 
-            log.debug("Header JSON : {}", headerJson);
-            log.debug("Payload JSON : {}", payloadJson);
+                /*
+                 * Add the extracted messageType to the headers
+                 */
+                if (messageType != null) {
+                    headerMap.put("alert-type", messageType);
+                }
 
-            /*
-             * Send to Kafka
-             */
-            kafkaProducerService.sendPayload(
-                    payload.getId(),
-                    payload.getPayloadType(),
-                    headerJson,
-                    payloadJson
-            );
+                String headerJson = mapper.writeValueAsString(headerMap);
 
-            payload.setTopicStatus("PUBLISHED");
+                log.debug("Header JSON : {}", headerJson);
+                log.debug("Payload JSON : {}", payloadJson);
 
-            payloadRepository.save(payload);
+                /*
+                 * Send to Kafka
+                 */
+                kafkaProducerService.sendPayload(
+                        payload.getId(),
+                        payload.getPayloadType(),
+                        headerJson,
+                        payloadJson
+                );
 
-            log.info("Payload id {} marked as PUBLISHED", payload.getId());
+                payload.setTopicStatus("PUBLISHED");
+                log.info("Payload id {} marked as PUBLISHED", payload.getId());
+
+            } catch (Exception e) {
+                log.error("Error processing payload id {}. Marking as FAILED.", payload.getId(), e);
+                payload.setTopicStatus("FAILED");
+            } finally {
+                payloadRepository.save(payload);
+            }
         }
 
         log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");

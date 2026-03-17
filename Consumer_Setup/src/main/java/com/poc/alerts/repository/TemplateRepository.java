@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface TemplateRepository extends JpaRepository<TemplateMst,Long> {
 
-    Optional<TemplateMst> findByMessageTypeAndAlertTypeAndIsActive(
+    Optional<TemplateMst> findFirstByMessageTypeAndAlertTypeAndIsActive(
             String messageType,
             String alertType,
             Boolean isActive

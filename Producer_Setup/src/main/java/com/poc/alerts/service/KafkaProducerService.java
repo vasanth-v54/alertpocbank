@@ -20,6 +20,7 @@ import com.poc.alerts.util.DltLoggerUtil;
 @Service
 public class KafkaProducerService {
 
+
     private static final Logger log =
             LoggerFactory.getLogger(KafkaProducerService.class);
 
@@ -45,201 +46,92 @@ public class KafkaProducerService {
 
         log.info("Producing message to topic {}", AppConstants.TOPIC);
 
-        JsonNode headerNode;
-
-        /*
-         * -----------------------------------------
-         * JSON PARSE VALIDATION
-         * -----------------------------------------
-         */
-
-        try {
-            headerNode = mapper.readTree(headerJson);
-        } catch (Exception e) {
-
-            log.error("Invalid JSON payload", e);
-
-            writeDlt(payloadId,
-                    "UNKNOWN_EVENT_ID",
-                    "Invalid JSON payload",
-                    payloadJson);
-
-            return;
-        }
-
-        /*
-         * -----------------------------------------
-         * EXTRACT HEADER VALUES
-         * -----------------------------------------
-         */
-
-        String businessKey = getSafeText(headerNode, "businessKey");
-        String eventType   = getSafeText(headerNode, "eventType");
-        String eventId     = getSafeText(headerNode, "eventId");
-        String source      = getSafeText(headerNode, "eventSourceId");
-        String status      = getSafeText(headerNode, "status");
-
-        log.info("BusinessKey : {}", businessKey);
-        log.info("EventType   : {}", eventType);
-        log.info("EventId     : {}", eventId);
-
-        /*
-         * -----------------------------------------
-         * VALIDATE HEADER FIELDS
-         * -----------------------------------------
-         */
-
-        if (eventId == null) {
-
-            writeDlt(payloadId,
-                    "UNKNOWN_EVENT_ID",
-                    "Payload validation failed: Missing or Empty eventId",
-                    payloadJson);
-
-            return;
-        }
-
-        if (businessKey == null) {
-
-            writeDlt(payloadId,
-                    eventId,
-                    "Payload validation failed: Missing businessKey",
-                    payloadJson);
-
-            return;
-        }
-
-        /*
-         * -----------------------------------------
-         * VALIDATE customFieldDetails FIELDS
-         * -----------------------------------------
-         */
-
-        String invalidField = validateCustomFields(payloadJson);
-
-        if (invalidField != null) {
-
-            writeDlt(payloadId,
-                    eventId,
-                    "Payload validation failed: Missing or Empty field -> " + invalidField,
-                    payloadJson);
-
-            return;
-        }
-
-        /*
-         * -----------------------------------------
-         * CREATE KAFKA RECORD
-         * -----------------------------------------
-         */
-
-        ProducerRecord<String, String> record =
-                new ProducerRecord<>(AppConstants.TOPIC, businessKey, payloadJson);
-
-        String alertType = getMessageType(payloadJson);
-
-        addHeader(record, "event-type", eventType);
-        addHeader(record, "event-id", eventId);
-        addHeader(record, "source", source);
-        addHeader(record, "status", status);
-        addHeader(record, "alert-type", alertType);
-
-        record.headers().forEach(header ->
-                log.info("{} = {}", header.key(),
-                        new String(header.value()))
-        );
-
-        /*
-         * -----------------------------------------
-         * SEND MESSAGE
-         * -----------------------------------------
-         */
-
-        kafkaTemplate.send(record)
-                .whenComplete((result, ex) -> {
-
-                    if (ex == null && result != null) {
-
-                        Instant timestamp = Instant.now();
-
-                        auditLog.info(
-                                "EVENT=KAFKA_PUBLISHED | payloadId={} | topic={} | partition={} | offset={} | timestamp={}",
-                                payloadId,
-                                result.getRecordMetadata().topic(),
-                                result.getRecordMetadata().partition(),
-                                result.getRecordMetadata().offset(),
-                                timestamp
-                        );
-
-                        payloadRepository.updateTopicStatus(payloadId, "SUCCESS");
-
-                    } else {
-
-                        log.error("Kafka publish failed", ex);
-
-                        writeDlt(payloadId,
-                                eventId,
-                                ex != null ? ex.getMessage() : "Kafka publish error",
-                                payloadJson);
-                    }
-                });
-    }
-
-    /*
-     * -----------------------------------------
-     * VALIDATE CUSTOM FIELDS
-     * -----------------------------------------
-     */
-
-    private String validateCustomFields(String payloadJson) {
-
         try {
 
-            JsonNode root = mapper.readTree(payloadJson);
+            JsonNode headerNode = mapper.readTree(headerJson);
 
-            JsonNode customFields =
-                    root.path("customFieldDetails");
+        /*
+         EXTRACT HEADER VALUES
+         */
 
-            String[] requiredFields = {
-                    "customer_id",
-                    "customer_name",
-                    "timestamp",
-                    "amount",
-                    "loan_account",
-                    "txn_ref",
-                    "days_overdue",
-                    "min_amount_due",
-                    "grace_date",
-                    "loan_ref",
-                    "beneficiary_name",
-                    "beneficiary_id"
-            };
+            String businessKey = getSafeText(headerNode, "businessKey");
+            String eventType   = getSafeText(headerNode, "eventType");
+            String eventId     = getSafeText(headerNode, "eventId");
+            String source      = getSafeText(headerNode, "eventSourceId");
+            String status      = getSafeText(headerNode, "status");
+            String alertType   = getSafeText(headerNode, "alert-type"); // Read from headers
 
-            for (String field : requiredFields) {
+            log.info("BusinessKey : {}", businessKey);
+            log.info("EventType   : {}", eventType);
+            log.info("EventId     : {}", eventId);
+            log.info("AlertType   : {}", alertType);
 
-                JsonNode node = customFields.get(field);
+        /*
+         CREATE KAFKA RECORD
+         */
 
-                if (node == null ||
-                        node.isNull() ||
-                        node.asText().trim().isEmpty()) {
+            ProducerRecord<String, String> record =
+                    new ProducerRecord<>(AppConstants.TOPIC, businessKey, payloadJson);
 
-                    return field;
-                }
-            }
+            addHeader(record, "event-type", eventType);
+            addHeader(record, "event-id", eventId);
+            addHeader(record, "source", source);
+            addHeader(record, "status", status);
+            addHeader(record, "alert-type", alertType); // Add to record
+
+            record.headers().forEach(header ->
+                    log.info("{} = {}",
+                            header.key(),
+                            new String(header.value()))
+            );
+
+        /*
+         SEND MESSAGE
+         */
+
+            kafkaTemplate.send(record)
+                    .whenComplete((result, ex) -> {
+
+                        if (ex == null && result != null) {
+
+                            Instant timestamp = Instant.now();
+
+                            auditLog.info(
+                                    "EVENT=KAFKA_PUBLISHED | payloadId={} | topic={} | partition={} | offset={} | timestamp={}",
+                                    payloadId,
+                                    result.getRecordMetadata().topic(),
+                                    result.getRecordMetadata().partition(),
+                                    result.getRecordMetadata().offset(),
+                                    timestamp
+                            );
+
+                            payloadRepository.updateTopicStatus(payloadId, "SUCCESS");
+
+                        } else {
+
+                            log.error("Kafka publish failed", ex);
+
+                            writeDlt(payloadId,
+                                    eventId,
+                                    ex != null ? ex.getMessage() : "Kafka publish error",
+                                    payloadJson);
+                        }
+                    });
 
         } catch (Exception e) {
 
-            return "INVALID_JSON";
-        }
+            log.error("Producer error", e);
 
-        return null;
+            writeDlt(payloadId,
+                    "UNKNOWN_EVENT_ID",
+                    e.getMessage(),
+                    payloadJson);
+        }
     }
 
-    /*
-     * -----------------------------------------
-     * SAFE JSON TEXT EXTRACTION
-     * -----------------------------------------
-     */
+/*
+ SAFE JSON TEXT EXTRACTION
+ */
 
     private String getSafeText(JsonNode node, String field) {
 
@@ -249,23 +141,12 @@ public class KafkaProducerService {
             return null;
         }
 
-        String value = valueNode.asText();
-
-        if (value == null ||
-                value.trim().isEmpty() ||
-                "null".equalsIgnoreCase(value.trim())) {
-
-            return null;
-        }
-
-        return value;
+        return valueNode.asText();
     }
 
-    /*
-     * -----------------------------------------
-     * WRITE DLT + UPDATE DB
-     * -----------------------------------------
-     */
+/*
+ WRITE DLT + UPDATE DB
+ */
 
     private void writeDlt(Long payloadId,
                           String eventId,
@@ -293,46 +174,20 @@ public class KafkaProducerService {
         }
     }
 
-    /*
-     * -----------------------------------------
-     * ADD HEADER
-     * -----------------------------------------
-     */
+/*
+ ADD HEADER
+ */
 
     private void addHeader(ProducerRecord<String, String> record,
                            String key,
                            String value) {
 
-        if (value != null && !value.trim().isEmpty()) {
-
-            record.headers().add(
-                    key,
-                    value.getBytes(StandardCharsets.UTF_8)
-            );
-        }
-    }
-
-    /*
-     * -----------------------------------------
-     * EXTRACT MessageType
-     * -----------------------------------------
-     */
-
-    public static String getMessageType(String json) {
-
-        try {
-
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(json);
-
-            return root
-                    .path("customFieldDetails")
-                    .path("MessageType")
-                    .asText();
-
-        } catch (Exception e) {
-
-            return null;
-        }
+        // Kafka header values cannot be null. Convert null to an empty string
+        // to ensure the header is always present for consumer-side validation.
+        String headerValue = (value == null) ? "" : value;
+        record.headers().add(
+                key,
+                headerValue.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }
