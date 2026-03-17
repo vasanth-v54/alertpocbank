@@ -28,8 +28,8 @@ public class EmailConsumer {
 	private final AuditService auditService;
 	private final RoutingService routingService;
 	private final TemplateService templateService;
-	
-	public EmailConsumer(AuditService auditService, RoutingService routingService,TemplateService templateService) {
+
+	public EmailConsumer(AuditService auditService, RoutingService routingService, TemplateService templateService) {
 		this.auditService = auditService;
 		this.routingService = routingService;
 		this.templateService = templateService;
@@ -63,7 +63,8 @@ public class EmailConsumer {
 					// Step Duplicate check
 					if (auditService.isAlreadyProcessed(eventId, messageType)) {
 
-						auditLog.warn(" EMAIL | Duplicate message detected. Skipping processing for eventId={} messageType={}",
+						auditLog.warn(
+								" EMAIL | Duplicate message detected. Skipping processing for eventId={} messageType={}",
 								eventId, messageType);
 						// Save DB audit
 						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
@@ -72,38 +73,43 @@ public class EmailConsumer {
 
 					// Save DB audit
 					auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
-					
+
 					// 🔹 Validate routing config
-					String alertType=PocBankUtil.getAlertType(payload);
-					KeyRoutingConfig config =
-			                routingService.getRoutingConfig(messageType, alertType);
+					String alertType = PocBankUtil.getAlertType(payload);
+					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
 
-			        log.info("EMAIL | KeyRoutingConfig config: {}",config);
-			        log.info("EMAIL | Payload Actual data messageType: {}, alertType:{}",messageType,alertType);
-			        log.info("EMAIL | Result from config data messageType: {}, alertType:{}",config.getMessageType(),config.getAlertType());
+					log.info("EMAIL | KeyRoutingConfig config: {}", config);
+					log.info("EMAIL | Payload Actual data messageType: {}, alertType:{}", messageType, alertType);
+					log.info("EMAIL | Result from config data messageType: {}, alertType:{}", config.getMessageType(),
+							config.getAlertType());
 
-			        TemplateMst template =
-			                templateService.getTemplate(messageType,alertType);
+					if (messageType.equalsIgnoreCase(config.getMessageType())
+							&& alertType.equalsIgnoreCase(config.getAlertType())) {
+						TemplateMst template = templateService.getTemplate(config.getMessageType(),
+								config.getAlertType());
 
-			        log.info(" EMAIL | TemplateId : {}",template);
-			        log.info(" EMAIL | Template Variables : {}",template.getTemplateVariable());
-			        
-			        String templateVariables = template.getTemplateVariable();
+						log.info(" EMAIL | TemplateId : {}", template);
+						log.info(" EMAIL | Template Variables : {}", template.getTemplateVariable());
+						if (null != template && !PocBankUtil.isNullOrEmpty(template.getTemplateVariable())) {
+							String templateVariables = template.getTemplateVariable();
 
-			        Map<String,Object> templateData =
-			                PayloadVariableExtractor.extractTemplateData(payload, templateVariables);
+							Map<String, Object> templateData = PayloadVariableExtractor.extractTemplateData(payload,
+									templateVariables);
 
-			        log.info("EMAIL | Template Data : {}", templateData);
-			        
-			        NotificationRequest request =
-			                NotificationRequestBuilder.buildRequest(
-			                        "9876543210",
-			                        "customer@test.com",
-			                        template.getTemplateId(),
-			                        templateData
-			                );
+							log.info("EMAIL | Template Data : {}", templateData);
 
-			        auditLog.info("EMAIL | Final Notification Request : {}", request);
+							NotificationRequest request = NotificationRequestBuilder.buildRequest("9876543210",
+									"customer@test.com", template.getTemplateId(), templateData);
+
+							auditLog.info("EMAIL | Final Notification Request : {}", request);
+						}else {
+							log.info(" EMAIL | Template Not Configured");
+							return;
+						}
+					} else {
+						log.info("EMAIL | Mismatch Key Configuration");
+						return;
+					}
 
 				} else {
 					log.info(" EMAIL | Invalid or Missing Header details {}", headerValidationResul);

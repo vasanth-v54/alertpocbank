@@ -28,8 +28,8 @@ public class SmsConsumer {
 	private final AuditService auditService;
 	private final RoutingService routingService;
 	private final TemplateService templateService;
-	
-	public SmsConsumer(AuditService auditService, RoutingService routingService,TemplateService templateService) {
+
+	public SmsConsumer(AuditService auditService, RoutingService routingService, TemplateService templateService) {
 		this.auditService = auditService;
 		this.routingService = routingService;
 		this.templateService = templateService;
@@ -78,36 +78,40 @@ public class SmsConsumer {
 					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
 
 					log.info("KeyRoutingConfig config: {}", config);
-					log.info("KeyRoutingConfig config: {}",config);
-			        log.info("SMS | Payload Actual data messageType: {}, alertType:{}",messageType,alertType);
-			        log.info("SMS | Result from config data messageType: {}, alertType:{}",config.getMessageType(),config.getAlertType());
+					log.info("SMS | Payload Actual data messageType: {}, alertType:{}", messageType, alertType);
+					log.info("SMS | Result from config data messageType: {}, alertType:{}", config.getMessageType(),
+							config.getAlertType());
 
-			        TemplateMst template =
-			                templateService.getTemplate(messageType,alertType);
+					if (messageType.equalsIgnoreCase(config.getMessageType())
+							&& alertType.equalsIgnoreCase(config.getAlertType())) {
+						TemplateMst template = templateService.getTemplate(config.getMessageType(),
+								config.getAlertType());
 
-			        log.info("TemplateId : {}",template);
-			        log.info("Template Variables : {},Payload Data : {}",template.getTemplateVariable(),payload);
-			        
-			        String templateVariables = template.getTemplateVariable();
+						log.info("TemplateId : {}", template);
+						log.info("Template Variables : {},Payload Data : {}", template.getTemplateVariable(), payload);
+						if (null != template && !PocBankUtil.isNullOrEmpty(template.getTemplateVariable())) {
+							String templateVariables = template.getTemplateVariable();
 
-			        Map<String,Object> templateData =
-			                PayloadVariableExtractor.extractTemplateData(payload, templateVariables);
+							Map<String, Object> templateData = PayloadVariableExtractor.extractTemplateData(payload,
+									templateVariables);
 
-			        log.info("SMS | Template Data : {}", templateData);
-			        
-			        NotificationRequest request =
-			                NotificationRequestBuilder.buildRequest(
-			                        "9876543210",
-			                        "customer@test.com",
-			                        template.getTemplateId(),
-			                        templateData
-			                );
+							log.info("SMS | Template Data : {}", templateData);
 
-			        auditLog.info("SMS | Final Notification Request : {}", request);
-			        
+							NotificationRequest request = NotificationRequestBuilder.buildRequest("9876543210",
+									"customer@test.com", template.getTemplateId(), templateData);
+
+							auditLog.info("SMS | Final Notification Request : {}", request);
+						} else {
+							log.info(" SMS | Template Not Configured");
+							return;
+						}
+					} else {
+						log.info("SMS | Mismatch Key Configuration");
+						return;
+					}
 
 				} else {
-					log.info("Invalid or Missing Header details {}", headerValidationResult);
+					log.info("SMS | Invalid or Missing Header details {}", headerValidationResult);
 					return;
 				}
 			}
