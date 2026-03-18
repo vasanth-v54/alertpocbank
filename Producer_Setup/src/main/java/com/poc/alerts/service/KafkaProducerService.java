@@ -105,7 +105,7 @@ public class KafkaProducerService {
                                     timestamp
                             );
 
-                            payloadRepository.updateTopicStatus(payloadId, "SUCCESS");
+                            payloadRepository.updateTopicStatus(payloadId, "PUBLISHED");
 
                         } else {
 
