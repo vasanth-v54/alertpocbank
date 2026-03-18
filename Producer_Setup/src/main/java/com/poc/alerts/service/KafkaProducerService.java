@@ -46,7 +46,6 @@ public class KafkaProducerService {
         String businessKey = headerNode.path("businessKey").asText();
         String eventType   = headerNode.path("eventType").asText();
         String eventId     = headerNode.path("eventId").asText();
-        String source      = headerNode.path("eventSourceId").asText();
         String status      = headerNode.path("status").asText();
 
         log.info("BusinessKey : {}", businessKey);
@@ -146,6 +145,7 @@ public class KafkaProducerService {
             JsonNode root = mapper.readTree(json);
 
             return root
+                    .path("payload")                // <-- missing level
                     .path("customFieldDetails")
                     .path("MessageType")
                     .asText();
@@ -161,6 +161,7 @@ public class KafkaProducerService {
             JsonNode root = mapper.readTree(json);
 
             return root
+                    .path("payload")                // <-- missing level
                     .path("customFieldDetails")
                     .path("alertType")
                     .asText();

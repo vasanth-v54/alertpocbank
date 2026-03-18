@@ -15,85 +15,71 @@ import com.poc.alerts.repository.PayloadRepository;
 @Service
 public class PayloadService {
 
-    private final PayloadRepository payloadRepository;
-    private final KafkaProducerService kafkaProducerService;
+	private final PayloadRepository payloadRepository;
+	private final KafkaProducerService kafkaProducerService;
 
-    private static final Logger log = LoggerFactory.getLogger(PayloadService.class);
+	private static final Logger log = LoggerFactory.getLogger(PayloadService.class);
 
-    private final ObjectMapper mapper = new ObjectMapper();
+	private final ObjectMapper mapper = new ObjectMapper();
 
-    public PayloadService(PayloadRepository payloadRepository,
-                          KafkaProducerService kafkaProducerService) {
+	public PayloadService(PayloadRepository payloadRepository, KafkaProducerService kafkaProducerService) {
 
-        this.kafkaProducerService = kafkaProducerService;
-        this.payloadRepository = payloadRepository;
-    }
+		this.kafkaProducerService = kafkaProducerService;
+		this.payloadRepository = payloadRepository;
+	}
 
-    @SuppressWarnings("unchecked")
+	@SuppressWarnings("unchecked")
 	public void publishPayloads() throws Exception {
 
-        log.info("========= PAYLOAD PUBLISH JOB STARTED ==========");
+		log.info("========= PAYLOAD PUBLISH JOB STARTED ==========");
 
-        List<PayloadMst> payloadList =
-                payloadRepository.findByTopicStatus("PENDING");
+		List<PayloadMst> payloadList = payloadRepository.findByTopicStatus("PENDING");
 
-        if (payloadList.isEmpty()) {
+		if (payloadList.isEmpty()) {
 
-            log.info("No payload found in DB");
-            log.info("Waiting for payload insertion...");
-            return;
-        }
+			log.info("No payload found in DB");
+			log.info("Waiting for payload insertion...");
+			return;
+		}
 
-        log.info("Total payload records fetched from DB : {}", payloadList.size());
+		log.info("Total payload records fetched from DB : {}", payloadList.size());
 
-        for (PayloadMst payload : payloadList) {
+		for (PayloadMst payload : payloadList) {
 
-            log.info("-----------------------------------------------");
-            log.info("Processing payload id : {}", payload.getId());
-            log.info("Payload Type : {}", payload.getPayloadType());
+			log.info("-----------------------------------------------");
+			log.info("Processing payload id : {}", payload.getId());
+			log.info("Payload Type : {}", payload.getPayloadType());
 
-            /*
-             * FULL JSON from DB
-             */
-            String fullJson = payload.getPayload();
+			/*
+			 * FULL JSON from DB
+			 */
+			String fullJson = payload.getPayload();
 
-            JsonNode rootNode = mapper.readTree(fullJson);
+			JsonNode rootNode = mapper.readTree(fullJson);
 
-            /*
-             * Extract payload section
-             */
-            JsonNode payloadNode = rootNode.path("payload");
+			/*
+			 * Extract header fields (everything except payload)
+			 */
+			Map<String, Object> headerMap = mapper.convertValue(rootNode, Map.class);
+			headerMap.remove("payload");
 
-            String payloadJson = mapper.writeValueAsString(payloadNode);
+			String headerJson = mapper.writeValueAsString(headerMap);
 
-            /*
-             * Extract header fields (everything except payload)
-             */
-            Map<String, Object> headerMap = mapper.convertValue(rootNode, Map.class);
-            headerMap.remove("payload");
+			log.debug("Header JSON : {}", headerJson);
+			log.debug("Payload JSON : {}", fullJson);
 
-            String headerJson = mapper.writeValueAsString(headerMap);
+			/*
+			 * Send to Kafka
+			 */
+			kafkaProducerService.sendPayload(payload.getId(), payload.getPayloadType(), headerJson, fullJson);
 
-            log.debug("Header JSON : {}", headerJson);
-            log.debug("Payload JSON : {}", payloadJson);
+			payload.setTopicStatus("PUBLISHED");
 
-            /*
-             * Send to Kafka
-             */
-            kafkaProducerService.sendPayload(
-                    payload.getId(),
-                    payload.getPayloadType(),
-                    headerJson,
-                    payloadJson
-            );
+			payloadRepository.save(payload);
 
-            payload.setTopicStatus("PUBLISHED");
+			log.info("Payload id {} marked as PUBLISHED", payload.getId());
+		}
 
-            payloadRepository.save(payload);
-
-            log.info("Payload id {} marked as PUBLISHED", payload.getId());
-        }
-
-        log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");
-    }
+		log.info("========= PAYLOAD PUBLISH JOB COMPLETED ==========");
+	}
 }
