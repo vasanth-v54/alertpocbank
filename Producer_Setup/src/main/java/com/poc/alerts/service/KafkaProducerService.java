@@ -68,12 +68,13 @@ public class KafkaProducerService {
          * -----------------------------
          */
         
-        String alertType=getMessageType(payloadJson);
-        log.info("payload alertType: {}",alertType);
+        String messageType=getMessageType(payloadJson);
+        String alertType=getAlertType(payloadJson);
+        log.info("payload alertType: {}, messageType: {}",messageType);
         
         record.headers().add("event-type", eventType.getBytes(StandardCharsets.UTF_8));
         record.headers().add("event-id", eventId.getBytes(StandardCharsets.UTF_8));
-        record.headers().add("source", source.getBytes(StandardCharsets.UTF_8));
+        record.headers().add("MessageType", messageType.getBytes(StandardCharsets.UTF_8));
         record.headers().add("status", status.getBytes(StandardCharsets.UTF_8));
         record.headers().add("alert-type", alertType.getBytes(StandardCharsets.UTF_8));
 
@@ -153,4 +154,20 @@ public class KafkaProducerService {
             return null;
         }
     }
+    
+    public static String getAlertType(String json) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(json);
+
+            return root
+                    .path("customFieldDetails")
+                    .path("alertType")
+                    .asText();
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
 }
