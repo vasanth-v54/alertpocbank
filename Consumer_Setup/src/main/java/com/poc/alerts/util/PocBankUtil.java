@@ -1,7 +1,6 @@
 package com.poc.alerts.util;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.security.SecureRandom;
 
 public class PocBankUtil {
 	
@@ -9,19 +8,18 @@ public class PocBankUtil {
 	    return value == null || value.trim().isEmpty();
 	}
 	
-	public static String getAlertType(String json) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(json);
+	private static final String ALPHA_NUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final SecureRandom random = new SecureRandom();
 
-            return root
-                    .path("customFieldDetails")
-                    .path("alertType")
-                    .asText();
+    public static String generateReferenceId() {
 
-        } catch (Exception e) {
-            return null;
+        StringBuilder ref = new StringBuilder(12);
+
+        for (int i = 0; i < 12; i++) {
+            ref.append(ALPHA_NUMERIC.charAt(random.nextInt(ALPHA_NUMERIC.length())));
         }
+
+        return ref.toString();
     }
 
 }
