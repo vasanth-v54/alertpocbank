@@ -12,7 +12,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   datasource:
-    url: jdbc:mysql://localhost:3306/pocalert
+    url: jdbc:mysql://localhost:3306/alert
     username: root
     password: root
 

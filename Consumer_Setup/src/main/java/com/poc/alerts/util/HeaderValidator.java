@@ -14,7 +14,7 @@ public class HeaderValidator {
 
 	public static String validate(Map<String, Object> headers) {
 
-		String[] requiredHeaders = { "event-type", "event-id", "alert-type", "status", "MessageType" };
+		String[] requiredHeaders = { "event-type", "event-id", "alert-type", "status", "source" };
 
 		for (String header : requiredHeaders) {
 

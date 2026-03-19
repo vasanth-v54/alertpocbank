@@ -8,7 +8,15 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.stereotype.Service;
 
+import com.poc.alerts.entity.KeyRoutingConfig;
+import com.poc.alerts.entity.TemplateMst;
+import com.poc.alerts.model.NotificationRequest;
+import com.poc.alerts.service.AuditService;
+import com.poc.alerts.service.RoutingService;
+import com.poc.alerts.service.TemplateService;
 import com.poc.alerts.util.HeaderValidator;
+import com.poc.alerts.util.NotificationRequestBuilder;
+import com.poc.alerts.util.PayloadVariableExtractor;
 import com.poc.alerts.util.PocBankUtil;
 
 @Service
@@ -17,12 +25,22 @@ public class SmsConsumer {
 	private static final Logger log = LoggerFactory.getLogger(SmsConsumer.class);
 	private static final Logger auditLog = LoggerFactory.getLogger("consumer_audit");
 
+	private final AuditService auditService;
+	private final RoutingService routingService;
+	private final TemplateService templateService;
+
+	public SmsConsumer(AuditService auditService, RoutingService routingService, TemplateService templateService) {
+		this.auditService = auditService;
+		this.routingService = routingService;
+		this.templateService = templateService;
+	}
+
 	@KafkaListener(topics = "notifications.events", groupId = "notification-cg-sms")
 	public void consume(String payload, @Headers Map<String, Object> headers) {
 
 		try {
 
-			log.info("****SMS CONSUMER****");
+			log.info("Message received for SMS consumer");
 
 			String messageType = new String((byte[]) headers.get("alert-type"));
 			String eventId = new String((byte[]) headers.get("event-id"));
@@ -36,8 +54,61 @@ public class SmsConsumer {
 				// Audit log
 				auditLog.info("SMS | Consumed EventId={} Type={} Payload={}", eventId, messageType, payload);
 
+				// Validate headers
+				log.info("*** Header Validation Starts ***");
 				String headerValidationResult = HeaderValidator.validate(headers);
 				if (PocBankUtil.isNullOrEmpty(headerValidationResult)) {
+					log.info("*** Header Validation Ends ***");
+
+					// Step Duplicate check
+					if (auditService.isAlreadyProcessed(eventId, messageType)) {
+
+						auditLog.warn("Duplicate message detected. Skipping processing for eventId={} messageType={}",
+								eventId, messageType);
+						// Save DB audit
+						auditService.saveAudit(eventId, messageType, headers, payload, "DUPLICATE");
+						return;
+					}
+
+					// Save DB audit
+					auditService.saveAudit(eventId, messageType, headers, payload, "CONSUMED");
+
+					// 🔹 Validate routing config
+					String alertType = PocBankUtil.getAlertType(payload);
+					KeyRoutingConfig config = routingService.getRoutingConfig(messageType, alertType);
+
+					log.info("KeyRoutingConfig config: {}", config);
+					log.info("SMS | Payload Actual data messageType: {}, alertType:{}", messageType, alertType);
+					log.info("SMS | Result from config data messageType: {}, alertType:{}", config.getMessageType(),
+							config.getAlertType());
+
+					if (messageType.equalsIgnoreCase(config.getMessageType())
+							&& alertType.equalsIgnoreCase(config.getAlertType())) {
+						TemplateMst template = templateService.getTemplate(config.getMessageType(),
+								config.getAlertType());
+
+						log.info("TemplateId : {}", template);
+						log.info("Template Variables : {},Payload Data : {}", template.getTemplateVariable(), payload);
+						if (null != template && !PocBankUtil.isNullOrEmpty(template.getTemplateVariable())) {
+							String templateVariables = template.getTemplateVariable();
+
+							Map<String, Object> templateData = PayloadVariableExtractor.extractTemplateData(payload,
+									templateVariables);
+
+							log.info("SMS | Template Data : {}", templateData);
+
+							NotificationRequest request = NotificationRequestBuilder.buildRequest("9876543210",
+									"customer@test.com", template.getTemplateId(), templateData);
+
+							auditLog.info("SMS | Final Notification Request : {}", request);
+						} else {
+							log.info(" SMS | Template Not Configured");
+							return;
+						}
+					} else {
+						log.info("SMS | Mismatch Key Configuration");
+						return;
+					}
 
 				} else {
 					log.info("SMS | Invalid or Missing Header details {}", headerValidationResult);
