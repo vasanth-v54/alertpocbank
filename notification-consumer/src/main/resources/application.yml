@@ -1,0 +1,21 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-consumer
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    consumer:
+      # ❌ Removed hardcoded group-id (since you are using 2 @KafkaListeners)
+      auto-offset-reset: earliest
+
+      # ✅ FIX: Use StringDeserializer (avoids JSON type errors)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+logging:
+  level:
+    org.apache.kafka: INFO
