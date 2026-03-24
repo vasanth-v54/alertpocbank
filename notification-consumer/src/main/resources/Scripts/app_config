@@ -1,0 +1,48 @@
+CREATE TABLE app_config (
+    id SERIAL PRIMARY KEY,
+    config_key VARCHAR(255) NOT NULL,
+    config_value TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    flexifield1 VARCHAR(255), -- e.g. service
+    flexifield2 VARCHAR(255), -- e.g. module
+    flexifield3 VARCHAR(255), -- e.g. environment / feature group
+
+    created_by VARCHAR(100),
+    created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(100),
+    updated_on TIMESTAMP
+);
+
+select * from app_config;
+SET SQL_SAFE_UPDATES = 0;
+update app_config set config_value='3' where config_key='NO_OF_CONSUMER';
+
+INSERT INTO app_config (
+    config_key,
+    config_value,
+    is_active,
+    created_by,
+    created_on
+) VALUES (
+    'NO_OF_CONSUMER',
+    '2',
+    TRUE,
+    'system',
+    CURRENT_TIMESTAMP
+);
+INSERT INTO app_config (
+    config_key,
+    config_value,
+    is_active,
+    created_by,
+    created_on
+) VALUES (
+    'ALLOWED_CONSUMER',
+    'SMS|EMAIL|BOTH',
+    TRUE,
+    'system',
+    CURRENT_TIMESTAMP
+);
+
+commit;

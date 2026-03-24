@@ -5,17 +5,39 @@ spring:
   application:
     name: notification-consumer
 
+  datasource:
+    url: jdbc:mysql://localhost:3306/pocalert?useSSL=false&serverTimezone=UTC
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none   # use 'update' only for local testing if needed
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+
+  cache:
+    type: simple   # required for @Cacheable
+
   kafka:
     bootstrap-servers: localhost:9092
 
     consumer:
-      # ❌ Removed hardcoded group-id (since you are using 2 @KafkaListeners)
       auto-offset-reset: earliest
 
-      # ✅ FIX: Use StringDeserializer (avoids JSON type errors)
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+      # 🔥 Recommended configs
+      enable-auto-commit: false
+      max-poll-records: 50
 
 logging:
   level:
     org.apache.kafka: INFO
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
