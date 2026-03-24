@@ -22,7 +22,7 @@ public class RoutingKeyConfigService {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RoutingKeyConfig findMatchingConfig(String eventType, String messageType) {
+    public RoutingKeyConfig findMatchingConfig(String eventType, String alertType) {
 
         List<RoutingKeyConfig> configs = repository.findByIsActiveTrue();
 
@@ -32,10 +32,10 @@ public class RoutingKeyConfigService {
                 JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
 
                 String configEventType = json.path("eventType").asText();
-                String configMessageType = json.path("messageType").asText();
+                String configAlertType = json.path("alertType").asText();
 
                 if (eventType.equalsIgnoreCase(configEventType)
-                        && messageType.equalsIgnoreCase(configMessageType)) {
+                        && alertType.equalsIgnoreCase(configAlertType)) {
 
                     return config;
                 }
