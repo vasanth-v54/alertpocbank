@@ -17,6 +17,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.entity.RoutingKeyConfig;
 import com.notification.consumer.entity.TemplateMaster;
 import com.notification.consumer.dlt.*;
+import com.notification.consumer.dto.EmailRequest;
+import com.notification.consumer.dto.NotificationRequest;
+import com.notification.consumer.dto.SmsRequest;
 
 @Service
 public class NotificationService {
@@ -62,37 +65,6 @@ public class NotificationService {
 			String allowedConsumers = configService.getValue("ALLOWED_CONSUMER");
 			Set<String> allowedSet = Arrays.stream(allowedConsumers.split("\\|")).collect(Collectors.toSet());
 
-			/*if (allowedSet.contains(messageType)) {
-				log.info("Message type is allowed");
-
-				if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
-						|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
-					RoutingKeyConfig config = routingService.findMatchingConfig(eventType, alertType);
-					if (config != null) {
-						log.info("config :: " + config);
-
-						JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
-
-						String configEventType = json.path("eventType").asText();
-						String configAlertType = json.path("alertType").asText();
-						Map<String, TemplateMaster> templates = templateService.findTemplates(configEventType,
-								configAlertType);
-
-						if (!templates.isEmpty() && null != templates) {
-							log.info("Template master :: " + templates);
-							processTemplates(messageType, templates,payload);
-
-						} else {
-							log.info("Template Configuration was Missing or Not Available ");
-						}
-
-					} else {
-						log.info("Routing Key Configuration was Missing or Not Available");
-					}
-
-				}
-
-			}*/
 			//start
 			if (allowedSet.contains(messageType)) {
 				log.info("Message type is allowed");
@@ -212,11 +184,14 @@ public class NotificationService {
 		}
 	}
 
-	private void processSingle(TemplateMaster template, String type, String payload) {
+	private NotificationRequest processSingle(
+	        TemplateMaster template,
+	        String type,
+	        String payload) {
 
 	    if (template == null) {
 	        log.info(type + " template not found");
-	        return;
+	        return null;
 	    }
 
 	    try {
@@ -227,7 +202,7 @@ public class NotificationService {
 
 	        log.info("Template Parameters {}", templateJson.toString());
 
-	        // 🔥 Extract templateParams array
+	        // 🔥 Extract templateParams
 	        JsonNode paramsArray = templateJson.path("templateParams");
 
 	        Map<String, String> resolvedParams = new HashMap<>();
@@ -237,60 +212,80 @@ public class NotificationService {
 	            for (JsonNode param : paramsArray) {
 
 	                String key = param.asText();
-
 	                String value = findValue(payloadJson, key);
 
 	                if (value == null) {
-	                    log.info("❌ Data corrupted: Missing field -> " + key);
+	                	log.info("❌ Data corrupted: Missing field -> " + key);
+	                	return null;
 	                }
 
 	                resolvedParams.put(key, value);
 	            }
 	        }
 
+	        // 🔥 Final request object
+	        NotificationRequest request = new NotificationRequest();
+	        request.setType(type);
+	        request.setTemplateParams(resolvedParams);
+
 	        // ======================
-	        // 🔹 SMS PROCESSING
+	        // 🔹 SMS
 	        // ======================
-	        if ("SMS".equalsIgnoreCase(type)) {
+	        if ("SMS".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
+
+	            SmsRequest sms = new SmsRequest();
+
+	            sms.setFrom(templateJson.path("from").asText());
+	            sms.setMessage(templateJson.path("message").asText());
+	            sms.setTemplate(templateJson.path("template").asText());
+	            sms.setCallbackUrl(templateJson.path("callbackUrl").asText());
+	            sms.setReferenceId(templateJson.path("referenceId").asText());
+	            sms.setNotificationType(templateJson.path("notificationType").asText());
 
 	            String mobile = findValue(payloadJson, "mobileNumber");
 
 	            if (mobile == null || mobile.isEmpty()) {
-	            	log.info("❌ Missing mobileNumber in payload");
+	            	log.error("❌ Missing mobileNumber in payload");
+	            	return null;
 	            }
 
-	            String messageTemplate = templateJson.path("message").asText();
+	            sms.setMobileNumber(mobile);
 
-	            log.info("SMS Mobile: {}", mobile);
-	            log.info("Resolved Params: {}", resolvedParams);
-
-	            // 👉 Replace placeholders if needed
-	            // 👉 Call SMS service
-
+	            request.setSms(sms);
 	        }
 
 	        // ======================
-	        // 🔹 EMAIL PROCESSING
+	        // 🔹 EMAIL
 	        // ======================
-	        else if ("EMAIL".equalsIgnoreCase(type)) {
+	        if ("EMAIL".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
+
+	            EmailRequest email = new EmailRequest();
+
+	            email.setFrom(templateJson.path("from").asText());
+	            email.setCc(templateJson.path("cc").asText());
+	            email.setBcc(templateJson.path("bcc").asText());
+	            email.setSubject(templateJson.path("subject").asText());
+	            email.setBody(templateJson.path("body").asText());
+	            email.setTemplate(templateJson.path("template").asText());
 
 	            String to = findValue(payloadJson, "to");
 
 	            if (to == null || to.isEmpty()) {
-	            	log.info("❌ Missing 'to' in payload");
+	            	log.error("❌ Missing 'to' in payload");
+	            	return null;
 	            }
 
-	            String subject = templateJson.path("subject").asText();
-	            String body = templateJson.path("body").asText();
+	            email.setTo(to);
 
-	            log.info("Email To: {}", to);
-	            log.info("Resolved Params: {}", resolvedParams);
-
-	            // 👉 Call Email service
+	            request.setEmail(email);
 	        }
+
+	        log.error("Final Request"+request);
+	        return request;
 
 	    } catch (Exception e) {
 	        log.error("❌ Error processing template: {}", e.getMessage(), e);
+	        return null;
 	    }
 	}
 
