@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.entity.RoutingKeyConfig;
 import com.notification.consumer.entity.TemplateMaster;
+import com.notification.consumer.dlt.*;
 
 @Service
 public class NotificationService {
@@ -22,13 +23,15 @@ public class NotificationService {
 	private final RoutingKeyConfigService routingService;
 	private final TemplateService templateService;
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final DltService dltService;
 
 	public NotificationService(AppConfigService configService, RoutingKeyConfigService routingService,
-			TemplateService templateService) {
+			TemplateService templateService, DltService dltService) {
 		super();
 		this.configService = configService;
 		this.routingService = routingService;
 		this.templateService = templateService;
+		this.dltService = dltService;
 	}
 
 	public void process(String payload, Map<String, String> headers) {
@@ -57,7 +60,7 @@ public class NotificationService {
 			String allowedConsumers = configService.getValue("ALLOWED_CONSUMER");
 			Set<String> allowedSet = Arrays.stream(allowedConsumers.split("\\|")).collect(Collectors.toSet());
 
-			if (allowedSet.contains(messageType)) {
+			/*if (allowedSet.contains(messageType)) {
 				log.info("Message type is allowed");
 
 				if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
@@ -87,9 +90,76 @@ public class NotificationService {
 
 				}
 
+			}*/
+			//start
+			if (allowedSet.contains(messageType)) {
+				log.info("Message type is allowed");
+
+				if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
+						|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
+
+					RoutingKeyConfig config = routingService.findMatchingConfig(eventType, alertType);
+
+					if (config != null) {
+
+						log.info("config :: " + config);
+
+						JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
+
+						String configEventType = json.path("eventType").asText();
+						String configAlertType = json.path("alertType").asText();
+
+						Map<String, TemplateMaster> templates =
+								templateService.findTemplates(configEventType, configAlertType);
+
+						if (templates != null && !templates.isEmpty()) {
+
+							log.info("Template master :: " + templates);
+							processTemplates(messageType, templates, payload);
+
+						} else {
+
+							String errorMessage = "Template Configuration missing";
+
+							dltService.logDlt(payload, headers, errorMessage);
+							return;
+						}
+
+					} else {
+
+						String errorMessage = "Routing Key Configuration missing";
+
+						dltService.logDlt(payload, headers, errorMessage);
+						return;
+					}
+
+				} else {
+					String errorMessage =
+							"Invalid input: eventType must be present and either alertType or originatingSource must be present";
+
+					log.info(errorMessage);
+
+					dltService.logDlt(payload, headers, errorMessage);
+
+					return;
+				}
+
 			} else {
-				log.info("Message type is NOT allowed");
+
+				String errorMessage = "Message type is NOT allowed";
+
+				log.info(errorMessage);
+
+				dltService.logDlt(payload, headers, errorMessage);
+
+				return;
 			}
+
+			//end
+
+			/*else {
+				log.info("Message type is NOT allowed");
+			}*/
 
 		} catch (Exception e) {
 			log.info("Exception :: " + e);

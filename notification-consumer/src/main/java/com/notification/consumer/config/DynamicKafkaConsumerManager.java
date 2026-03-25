@@ -15,20 +15,23 @@ import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.notification.consumer.dlt.*;
+
 @Configuration
 @RequiredArgsConstructor
 public class DynamicKafkaConsumerManager {
 
     private final AppConfigService configService;
     private final NotificationService notificationService;
-    
+    private final HeaderValidatorService headerValidatorService;
+    private final DuplicateCheckService duplicateCheckService;
     
 
-    public DynamicKafkaConsumerManager(AppConfigService configService, NotificationService notificationService) {
+    /*public DynamicKafkaConsumerManager(AppConfigService configService, NotificationService notificationService) {
 		super();
 		this.configService = configService;
 		this.notificationService = notificationService;
-	}
+	}*/
 
 	@PostConstruct
     public void startConsumer() {
@@ -65,7 +68,22 @@ public class DynamicKafkaConsumerManager {
 
                         Map<String, String> headers = extractHeaders(record);
 
-                        notificationService.process(payload, headers);
+                        try {
+
+                            // 🔥 Step 1: Validate headers
+                            headerValidatorService.validateHeaders(headers, payload);
+
+                            String eventId = headers.get("event-id");
+                            duplicateCheckService.checkDuplicate(eventId, payload, headers);
+
+                            // 🔥 Step 2: Process if valid
+                            notificationService.process(payload, headers);
+
+                        } catch (Exception ex) {
+
+                            // Already logged to DLT
+                            System.out.println("Message moved to DLT: " + ex.getMessage());
+                        }
                     }
                 }
         );

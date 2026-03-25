@@ -1,0 +1,61 @@
+[ {
+  "severity" : "ERROR",
+  "data" : {
+    "Runtime" : "Java",
+    "Message" : {
+      "headers" : "{event-type=ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT, alert-type=, event-id=a1b2c3d4-333-7890-abcd-test420, MessageType=SMS, status=PROCESSED}",
+      "eventId" : "a1b2c3d4-333-7890-abcd-test420",
+      "payload" : "{\"businessKey\":\"POCBank|PH0099001|AAACT260001POCBK9X\",\"aliasInfo\":null,\"commandType\":null,\"correlationId\":null,\"dateTime\":\"2026-02-27T08:30:00.000+0000\",\"deviceid\":null,\"entityId\":null,\"entityName\":null,\"eventId\":\"a1b2c3d4-333-7890-abcd-test420\",\"eventSourceId\":\"POCBank\",\"headers\":null,\"operation\":null,\"operationInstanceId\":null,\"organizationId\":null,\"priority\":null,\"sequenceInstanceId\":null,\"sequenceNo\":null,\"serviceRequestComment\":null,\"serviceRequestId\":null,\"sourceRequestIdentifier\":null,\"sourceUri\":\"https://temenos.com/microservice/cloudevents/POCBank\",\"status\":\"PROCESSED\",\"subject\":\"event\",\"tenantId\":null,\"tracecontext\":null,\"transactionDate\":null,\"userId\":null,\"businessObjects\":null,\"eventType\":\"ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT\",\"payload\":{\"APPLICATIONCUSTOMERDetails\":[{\"applicationcustomerid\":\"300001\",\"applicationcustomername1List\":{\"applicationcustomername1\":[{\"applicationcustomername1\":\"Juan dela Cruz\",\"language\":\"GB\"}]}}],\"eventCommon\":{\"companyId\":\"PH0099001\",\"application\":\"SDA.DIGI.ACCOUNTS,ACCOUNTS-CREATION-SUCCESS\",\"creationTime\":\"2026-02-27T08:30:00.000Z\",\"today\":\"2026-02-27\",\"customCommon\":{\"timeInLocal\":\"2026-02-27T16:30:00.000 Asia/Manila\",\"ArrangementActivityReference\":\"AAACT260001POCBK9X\",\"ActivityContext\":\"User-Auth\",\"ActivityStatus\":\"AUTH\",\"ImmediateParentReference\":\"AAACT260001POCBK9X\",\"ParentReference\":\"AAACT260001POCBK9X\",\"Simulation\":\"NO\"},\"operator\":\"POCUSR00101\",\"transactionStage\":\"AA.ACT.AUTH.RTN\"},\"customFieldDetails\":{\"MessageType\":\"SMS\",\"alertType\":\"\",\"Release\":\"R25\",\"originatingsource\":null,\"customer_id\":\"1000230085\",\"customer_name\":\"Manas\",\"timestamp\":\"2026-02-27T08:30:00Z\",\"amount\":\"5000.00\",\"loan_account\":\"123456\",\"txn_ref\":\"TPHREF260001PACBQ\",\"days_overdue\":\"12\",\"min_amount_due\":\"1500.00\",\"grace_date\":\"2027-03-10\",\"loan_ref\":\"LNREF360001POCBK\",\"beneficiary_name\":\"Rosa Mendoza\",\"beneficiary_id\":\"AAACT260002POCBC8M\"}}}",
+      "errorMessage" : "Invalid input: eventType must be present and either alertType or originatingSource must be present"
+    },
+    "Method" : "logDlt"
+  },
+  "service" : "ConsumerService",
+  "environment" : "DEVELOPMENT",
+  "sessionId" : "8b0f4dad-3f05-48b3-bbcb-763f4d8f1368",
+  "statusCode" : "400",
+  "application" : "alertPoc",
+  "correlationId" : "4eca2843-4aec-4b97-97df-9b95eb35baba",
+  "browserType" : "Edge",
+  "eventTimeUTC" : "2026-03-24T21:54:51.929078200Z"
+}, {
+  "severity" : "ERROR",
+  "data" : {
+    "Runtime" : "Java",
+    "Message" : {
+      "headers" : "{event-type=ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT, alert-type=ACCOUNT_CREATED, event-id=a1b2c3d4-333-7890-abcd-test420, MessageType=SMS, status=PROCESSED}",
+      "eventId" : "a1b2c3d4-333-7890-abcd-test420",
+      "payload" : "{\"businessKey\":\"POCBank|PH0099001|AAACT260001POCBK9X\",\"aliasInfo\":null,\"commandType\":null,\"correlationId\":null,\"dateTime\":\"2026-02-27T08:30:00.000+0000\",\"deviceid\":null,\"entityId\":null,\"entityName\":null,\"eventId\":\"a1b2c3d4-333-7890-abcd-test420\",\"eventSourceId\":\"POCBank\",\"headers\":null,\"operation\":null,\"operationInstanceId\":null,\"organizationId\":null,\"priority\":null,\"sequenceInstanceId\":null,\"sequenceNo\":null,\"serviceRequestComment\":null,\"serviceRequestId\":null,\"sourceRequestIdentifier\":null,\"sourceUri\":\"https://temenos.com/microservice/cloudevents/POCBank\",\"status\":\"PROCESSED\",\"subject\":\"event\",\"tenantId\":null,\"tracecontext\":null,\"transactionDate\":null,\"userId\":null,\"businessObjects\":null,\"eventType\":\"ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT\",\"payload\":{\"APPLICATIONCUSTOMERDetails\":[{\"applicationcustomerid\":\"300001\",\"applicationcustomername1List\":{\"applicationcustomername1\":[{\"applicationcustomername1\":\"Juan dela Cruz\",\"language\":\"GB\"}]}}],\"eventCommon\":{\"companyId\":\"PH0099001\",\"application\":\"SDA.DIGI.ACCOUNTS,ACCOUNTS-CREATION-SUCCESS\",\"creationTime\":\"2026-02-27T08:30:00.000Z\",\"today\":\"2026-02-27\",\"customCommon\":{\"timeInLocal\":\"2026-02-27T16:30:00.000 Asia/Manila\",\"ArrangementActivityReference\":\"AAACT260001POCBK9X\",\"ActivityContext\":\"User-Auth\",\"ActivityStatus\":\"AUTH\",\"ImmediateParentReference\":\"AAACT260001POCBK9X\",\"ParentReference\":\"AAACT260001POCBK9X\",\"Simulation\":\"NO\"},\"operator\":\"POCUSR00101\",\"transactionStage\":\"AA.ACT.AUTH.RTN\"},\"customFieldDetails\":{\"MessageType\":\"SMS\",\"alertType\":\"ACCOUNT_CREATED\",\"Release\":\"R25\",\"originatingsource\":null,\"customer_id\":\"1000230085\",\"customer_name\":\"Manas\",\"timestamp\":\"2026-02-27T08:30:00Z\",\"amount\":\"5000.00\",\"loan_account\":\"123456\",\"txn_ref\":\"TPHREF260001PACBQ\",\"days_overdue\":\"12\",\"min_amount_due\":\"1500.00\",\"grace_date\":\"2027-03-10\",\"loan_ref\":\"LNREF360001POCBK\",\"beneficiary_name\":\"Rosa Mendoza\",\"beneficiary_id\":\"AAACT260002POCBC8M\"}}}",
+      "errorMessage" : "Duplicate message received for eventId: a1b2c3d4-333-7890-abcd-test420"
+    },
+    "Method" : "logDlt"
+  },
+  "service" : "ConsumerService",
+  "environment" : "DEVELOPMENT",
+  "sessionId" : "29cea779-9dcd-458b-9e9e-19b70b95eec6",
+  "statusCode" : "400",
+  "application" : "alertPoc",
+  "correlationId" : "1f107ee3-90b7-4363-a7ab-5845d08a0db3",
+  "browserType" : "Edge",
+  "eventTimeUTC" : "2026-03-24T21:55:51.897107300Z"
+}, {
+  "severity" : "ERROR",
+  "data" : {
+    "Runtime" : "Java",
+    "Message" : {
+      "headers" : "{event-type=ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT, alert-type=ACCOUNT_CREATED, event-id=  , MessageType=SMS, status=PROCESSED}",
+      "eventId" : "  ",
+      "payload" : "{\"businessKey\":\"POCBank|PH0099001|AAACT260001POCBK9X\",\"aliasInfo\":null,\"commandType\":null,\"correlationId\":null,\"dateTime\":\"2026-02-27T08:30:00.000+0000\",\"deviceid\":null,\"entityId\":null,\"entityName\":null,\"eventId\":\"  \",\"eventSourceId\":\"POCBank\",\"headers\":null,\"operation\":null,\"operationInstanceId\":null,\"organizationId\":null,\"priority\":null,\"sequenceInstanceId\":null,\"sequenceNo\":null,\"serviceRequestComment\":null,\"serviceRequestId\":null,\"sourceRequestIdentifier\":null,\"sourceUri\":\"https://temenos.com/microservice/cloudevents/POCBank\",\"status\":\"PROCESSED\",\"subject\":\"event\",\"tenantId\":null,\"tracecontext\":null,\"transactionDate\":null,\"userId\":null,\"businessObjects\":null,\"eventType\":\"ArrangementEvents-AccountCreated_AA_ACTIVITY_EVENT\",\"payload\":{\"APPLICATIONCUSTOMERDetails\":[{\"applicationcustomerid\":\"300001\",\"applicationcustomername1List\":{\"applicationcustomername1\":[{\"applicationcustomername1\":\"Juan dela Cruz\",\"language\":\"GB\"}]}}],\"eventCommon\":{\"companyId\":\"PH0099001\",\"application\":\"SDA.DIGI.ACCOUNTS,ACCOUNTS-CREATION-SUCCESS\",\"creationTime\":\"2026-02-27T08:30:00.000Z\",\"today\":\"2026-02-27\",\"customCommon\":{\"timeInLocal\":\"2026-02-27T16:30:00.000 Asia/Manila\",\"ArrangementActivityReference\":\"AAACT260001POCBK9X\",\"ActivityContext\":\"User-Auth\",\"ActivityStatus\":\"AUTH\",\"ImmediateParentReference\":\"AAACT260001POCBK9X\",\"ParentReference\":\"AAACT260001POCBK9X\",\"Simulation\":\"NO\"},\"operator\":\"POCUSR00101\",\"transactionStage\":\"AA.ACT.AUTH.RTN\"},\"customFieldDetails\":{\"MessageType\":\"SMS\",\"alertType\":\"ACCOUNT_CREATED\",\"Release\":\"R25\",\"originatingsource\":null,\"customer_id\":\"1000230085\",\"customer_name\":\"Manas\",\"timestamp\":\"2026-02-27T08:30:00Z\",\"amount\":\"5000.00\",\"loan_account\":\"123456\",\"txn_ref\":\"TPHREF260001PACBQ\",\"days_overdue\":\"12\",\"min_amount_due\":\"1500.00\",\"grace_date\":\"2027-03-10\",\"loan_ref\":\"LNREF360001POCBK\",\"beneficiary_name\":\"Rosa Mendoza\",\"beneficiary_id\":\"AAACT260002POCBC8M\"}}}",
+      "errorMessage" : "Header validation failed: Missing or Empty event-id"
+    },
+    "Method" : "logDlt"
+  },
+  "service" : "ConsumerService",
+  "environment" : "DEVELOPMENT",
+  "sessionId" : "2217b91c-66d2-4ec0-ac5e-10a6dfa05549",
+  "statusCode" : "400",
+  "application" : "alertPoc",
+  "correlationId" : "9505afa7-df13-4b47-942d-d246bfa578ae",
+  "browserType" : "Edge",
+  "eventTimeUTC" : "2026-03-24T21:56:41.943954600Z"
+} ]

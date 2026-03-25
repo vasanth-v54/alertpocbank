@@ -15,10 +15,10 @@ import java.util.Map;
 public class RoutingKeyConfigService {
 
     private final RoutingKeyConfigRepository repository;
-    public RoutingKeyConfigService(RoutingKeyConfigRepository repository) {
+    /*public RoutingKeyConfigService(RoutingKeyConfigRepository repository) {
 		super();
 		this.repository = repository;
-	}
+	}*/
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 

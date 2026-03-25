@@ -6,9 +6,9 @@ spring:
     name: notification-consumer
 
   datasource:
-    url: jdbc:mysql://localhost:3306/pocalert?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/alert
     username: root
-    password: root
+    password: root1234
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:

@@ -18,11 +18,6 @@ public class TemplateService {
     private final TemplateMasterRepository repository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public TemplateService(TemplateMasterRepository repository) {
-		super();
-		this.repository = repository;
-	}
-
 	public Map<String, TemplateMaster> findTemplates(String eventType, String alertType) {
 
         List<TemplateMaster> templates = repository.findByIsActiveTrue();
