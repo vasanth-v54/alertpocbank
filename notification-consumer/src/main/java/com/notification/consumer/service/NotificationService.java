@@ -129,12 +129,6 @@ public class NotificationService {
 				return;
 			}
 
-			//end
-
-			/*else {
-				log.info("Message type is NOT allowed");
-			}*/
-
 		} catch (Exception e) {
 			log.info("Exception :: " + e);
 		}
@@ -160,7 +154,15 @@ public class NotificationService {
 	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
-			log.info("No templates available");
+			//log.info("No templates available");
+			//return;
+			String errorMessage =
+					"No templates available";
+
+			log.info(errorMessage);
+
+			dltService.logDlt(payload, null, errorMessage);
+
 			return;
 		}
 
@@ -190,8 +192,16 @@ public class NotificationService {
 	        String payload) {
 
 	    if (template == null) {
-	        log.info(type + " template not found");
-	        return null;
+	       // log.info(type + " template not found");
+	      //  return null;
+			String errorMessage =
+					"No templates available";
+
+			log.info(errorMessage);
+
+			dltService.logDlt(payload, null, errorMessage);
+
+			return null;
 	    }
 
 	    try {
@@ -215,8 +225,16 @@ public class NotificationService {
 	                String value = findValue(payloadJson, key);
 
 	                if (value == null) {
-	                	log.info("❌ Data corrupted: Missing field -> " + key);
-	                	return null;
+						String errorMessage =
+								"Data corrupted: Missing field -> " + key;
+
+						log.info(errorMessage);
+
+						dltService.logDlt(payload, null, errorMessage);
+
+						return null;
+	                	//log.info("❌ Data corrupted: Missing field -> " + key);
+	                	//return null;
 	                }
 
 	                resolvedParams.put(key, value);
@@ -245,8 +263,16 @@ public class NotificationService {
 	            String mobile = findValue(payloadJson, "mobileNumber");
 
 	            if (mobile == null || mobile.isEmpty()) {
-	            	log.error("❌ Missing mobileNumber in payload");
-	            	return null;
+					String errorMessage =
+							"Missing mobileNumber in payload";
+
+					log.info(errorMessage);
+
+					dltService.logDlt(payload, null, errorMessage);
+
+					return null;
+	            	//log.error("❌ Missing mobileNumber in payload");
+	            	//return null;
 	            }
 
 	            sms.setMobileNumber(mobile);
@@ -271,8 +297,16 @@ public class NotificationService {
 	            String to = findValue(payloadJson, "to");
 
 	            if (to == null || to.isEmpty()) {
-	            	log.error("❌ Missing 'to' in payload");
-	            	return null;
+					String errorMessage =
+							"Missing to in payload";
+
+					log.info(errorMessage);
+
+					dltService.logDlt(payload, null, errorMessage);
+
+					return null;
+	            	//log.error("❌ Missing 'to' in payload");
+	            	//return null;
 	            }
 
 	            email.setTo(to);
@@ -284,12 +318,20 @@ public class NotificationService {
 	        return request;
 
 	    } catch (Exception e) {
-	        log.error("❌ Error processing template: {}", e.getMessage(), e);
-	        return null;
+			String errorMessage =
+					"Error processing template: {}";
+
+			log.info(errorMessage);
+
+			dltService.logDlt(payload, null, errorMessage);
+
+			return null;
+	       // log.error("❌ Error processing template: {}", e.getMessage(), e);
+	       // return null;
 	    }
 	}
 
-	
+
 	private String findValue(JsonNode node, String targetKey) {
 
 	    if (node == null) return null;
