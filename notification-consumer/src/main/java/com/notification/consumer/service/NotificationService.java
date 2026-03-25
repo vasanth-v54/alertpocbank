@@ -144,7 +144,7 @@ public class NotificationService {
 	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
-			dltService.logDlt(payload, null, "No templates available");
+			dltService.logDlt(payload, new HashMap<>(), "No templates available");
 			return;
 		}
 
@@ -165,7 +165,7 @@ public class NotificationService {
 	private NotificationRequest processSingle(TemplateMaster template, String type, String payload) {
 
 		if (template == null) {
-			dltService.logDlt(payload, null, "No templates available");
+			dltService.logDlt(payload, new HashMap<>(), "No templates available");
 			return null;
 		}
 
@@ -180,7 +180,7 @@ public class NotificationService {
 				String value = findValue(payloadJson, key);
 
 				if (value == null) {
-					dltService.logDlt(payload, null, "Missing field " + key);
+					dltService.logDlt(payload, new HashMap<>(), "Missing field " + key);
 					return null;
 				}
 
@@ -194,7 +194,7 @@ public class NotificationService {
 			return request;
 
 		} catch (Exception e) {
-			dltService.logDlt(payload, null, "Error processing template");
+			dltService.logDlt(payload, new HashMap<>(), "Error processing template");
 			return null;
 		}
 	}
