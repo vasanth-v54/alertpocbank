@@ -1,5 +1,6 @@
 package com.notification.consumer.config;
 
+import com.notification.consumer.logger.VerticalLogger;
 import com.notification.consumer.service.AppConfigService;
 import com.notification.consumer.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -25,15 +26,9 @@ public class DynamicKafkaConsumerManager {
     private final NotificationService notificationService;
     private final HeaderValidatorService headerValidatorService;
     private final DuplicateCheckService duplicateCheckService;
-    
+    private final VerticalLogger vlog;
 
-    /*public DynamicKafkaConsumerManager(AppConfigService configService, NotificationService notificationService) {
-		super();
-		this.configService = configService;
-		this.notificationService = notificationService;
-	}*/
-
-	@PostConstruct
+    @PostConstruct
     public void startConsumer() {
 
         Integer consumerCount = configService.getInt("NO_OF_CONSUMER");
@@ -49,7 +44,7 @@ public class DynamicKafkaConsumerManager {
 
         factory.setConsumerFactory(consumerFactory(groupId));
 
-        // 🔥 KEY LINE → controls number of parallel consumers
+        //controls number of parallel consumers
         factory.setConcurrency(consumerCount);
 
         ConcurrentMessageListenerContainer<String, String> container =
@@ -57,7 +52,7 @@ public class DynamicKafkaConsumerManager {
 
         container.getContainerProperties().setGroupId(groupId);
 
-        // 🔥 Set listener
+        // Set listener
         container.getContainerProperties().setMessageListener(
                 new MessageListener<String, String>() {
 
@@ -65,21 +60,39 @@ public class DynamicKafkaConsumerManager {
                     public void onMessage(ConsumerRecord<String, String> record) {
 
                         String payload = record.value();
-
                         Map<String, String> headers = extractHeaders(record);
+                        String eventId = headers.getOrDefault("event-id", "N/A");
+
+                        // Stage 3 wraps header validation + duplicate check
+                        vlog.stageStart(3, "VALIDATIONS & DUPLICATE CHECK", eventId);
 
                         try {
 
-                            // 🔥 Step 1: Validate headers
+                            // Step 1: Validate headers
+                            vlog.section("STEP 3a — Header Validation");
                             headerValidatorService.validateHeaders(headers, payload);
+                            vlog.field("HEADER_VALIDATION", "PASSED");
+                            vlog.field("VALIDATED_HEADERS", "event-type, event-id, MessageType, status");
 
-                            String eventId = headers.get("event-id");
+                            // Step 2: Duplicate check
+                            vlog.section("STEP 3b — Duplicate Check");
+                            vlog.field("EVENT_ID", eventId);
+                            vlog.field("MESSAGE_TYPE", headers.getOrDefault("MessageType", "N/A"));
                             duplicateCheckService.checkDuplicate(eventId, payload, headers);
+                            vlog.field("DUPLICATE_CHECK", "PASSED — first time seeing this event");
+                            vlog.field("DB_AUDIT_SAVE", "SAVED — status=CONSUMED in consumer_entry_audit");
+                            vlog.field("ERROR_MESSAGE", "NULL");
 
-                            // 🔥 Step 2: Process if valid
+                            vlog.stageEnd(3, "VALIDATIONS & DUPLICATE CHECK", "SUCCESS", eventId);
+
+                            // Step 3: Process if valid
                             notificationService.process(payload, headers);
 
                         } catch (Exception ex) {
+
+                            // header validation or duplicate check threw — log rainy scenario
+                            vlog.field("ERROR_MESSAGE", ex.getMessage());
+                            vlog.stageError(3, "VALIDATIONS & DUPLICATE CHECK", ex.getMessage(), ex, eventId);
 
                             // Already logged to DLT
                             System.out.println("Message moved to DLT: " + ex.getMessage());
@@ -92,7 +105,7 @@ public class DynamicKafkaConsumerManager {
 
         container.start();
 
-        System.out.println("✅ Started consumer with concurrency: " + consumerCount);
+        System.out.println("Started consumer with concurrency: " + consumerCount);
     }
 
     // 🔹 Extract headers
@@ -109,7 +122,7 @@ public class DynamicKafkaConsumerManager {
         return headersMap;
     }
 
-    // 🔹 Kafka consumer config
+    // Kafka consumer config
     private org.springframework.kafka.core.ConsumerFactory<String, String> consumerFactory(String groupId) {
 
         Map<String, Object> props = new HashMap<>();

@@ -1,150 +1,140 @@
 package com.notification.consumer.service;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.notification.consumer.entity.RoutingKeyConfig;
-import com.notification.consumer.entity.TemplateMaster;
+import com.fasterxml.jackson.databind.*;
+import com.notification.consumer.entity.*;
 import com.notification.consumer.dlt.*;
-import com.notification.consumer.dto.EmailRequest;
-import com.notification.consumer.dto.NotificationRequest;
-import com.notification.consumer.dto.SmsRequest;
+import com.notification.consumer.dto.*;
+import com.notification.consumer.logger.VerticalLogger;
 
 @Service
 public class NotificationService {
+
 	private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
 	private final AppConfigService configService;
 	private final RoutingKeyConfigService routingService;
 	private final TemplateService templateService;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final DltService dltService;
+	private final VerticalLogger vlog;
 
-	public NotificationService(AppConfigService configService, RoutingKeyConfigService routingService,
-			TemplateService templateService, DltService dltService) {
-		super();
+	public NotificationService(AppConfigService configService,
+							   RoutingKeyConfigService routingService,
+							   TemplateService templateService,
+							   DltService dltService,
+							   VerticalLogger vlog) {
 		this.configService = configService;
 		this.routingService = routingService;
 		this.templateService = templateService;
 		this.dltService = dltService;
+		this.vlog = vlog;
 	}
 
 	public void process(String payload, Map<String, String> headers) {
 
+		String eventId = headers != null ? headers.getOrDefault("event-id", "N/A") : "N/A";
+
 		try {
 			ObjectMapper mapper = new ObjectMapper();
-			log.info("Payload: " + payload);
-			log.info("Headers: " + headers);
+
+			// ================= STAGE 2 =================
+			vlog.stageStart(2, "CONSUMER CORE", eventId);
+			vlog.field("EVENT_ID", eventId);
+			vlog.section("FULL PAYLOAD RECEIVED");
+			vlog.payload(payload);
 
 			JsonNode root = mapper.readTree(payload);
 			String eventType = root.path("eventType").asText(null);
 
 			String customFieldDetails = extractCustomFieldDetails(payload);
-			log.info("customFieldDetails: " + customFieldDetails);
 			JsonNode customroot = mapper.readTree(customFieldDetails);
 
 			String messageType = customroot.path("MessageType").asText(null);
 			String originatingSource = customroot.path("originatingsource").asText(null);
 			String alertType = customroot.path("alertType").asText(null);
 
-			log.info("alertType :: " + alertType);
-			log.info("eventType :: " + eventType);
-			log.info("MessageType : " + messageType);
-			log.info("originatingSource : " + originatingSource);
+			vlog.field("EVENT_TYPE", eventType);
+			vlog.field("ALERT_TYPE", alertType);
+			vlog.field("MESSAGE_TYPE", messageType);
+
+			vlog.stageEnd(2, "CONSUMER CORE", "SUCCESS", eventId);
 
 			String allowedConsumers = configService.getValue("ALLOWED_CONSUMER");
 			Set<String> allowedSet = Arrays.stream(allowedConsumers.split("\\|")).collect(Collectors.toSet());
 
-			//start
-			if (allowedSet.contains(messageType)) {
-				log.info("Message type is allowed");
+			// ================= STAGE 4 =================
+			vlog.stageStart(4, "ROUTING CONFIG LOOKUP", eventId);
 
-				if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
-						|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
-
-					RoutingKeyConfig config = routingService.findMatchingConfig(eventType, alertType);
-
-					if (config != null) {
-
-						log.info("config :: " + config);
-
-						JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
-
-						String configEventType = json.path("eventType").asText();
-						String configAlertType = json.path("alertType").asText();
-
-						Map<String, TemplateMaster> templates =
-								templateService.findTemplates(configEventType, configAlertType);
-
-						if (templates != null && !templates.isEmpty()) {
-
-							log.info("Template master :: " + templates);
-							processTemplates(messageType, templates, payload);
-
-						} else {
-
-							String errorMessage = "Template Configuration missing";
-
-							dltService.logDlt(payload, headers, errorMessage);
-							return;
-						}
-
-					} else {
-
-						String errorMessage = "Routing Key Configuration missing";
-
-						dltService.logDlt(payload, headers, errorMessage);
-						return;
-					}
-
-				} else {
-					String errorMessage =
-							"Invalid input: eventType must be present and either alertType or originatingSource must be present";
-
-					log.info(errorMessage);
-
-					dltService.logDlt(payload, headers, errorMessage);
-
-					return;
-				}
-
-			} else {
-
-				String errorMessage = "Message type is NOT allowed";
-
-				log.info(errorMessage);
-
-				dltService.logDlt(payload, headers, errorMessage);
-
+			if (!allowedSet.contains(messageType)) {
+				String error = "Message type is NOT allowed";
+				dltService.logDlt(payload, headers, error);
+				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 				return;
 			}
 
-		} catch (Exception e) {
-			log.info("Exception :: " + e);
-		}
+			if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
+					|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
 
+				RoutingKeyConfig config = routingService.findMatchingConfig(eventType, alertType);
+
+				if (config == null) {
+					String error = "Routing Key Configuration missing";
+					dltService.logDlt(payload, headers, error);
+					vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
+					return;
+				}
+
+				JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
+				String cfgEventType = json.path("eventType").asText();
+				String cfgAlertType = json.path("alertType").asText();
+
+				vlog.stageEnd(4, "ROUTING CONFIG LOOKUP", "SUCCESS", eventId);
+
+				// ================= STAGE 5 =================
+				vlog.stageStart(5, "TEMPLATE LOOKUP", eventId);
+
+				Map<String, TemplateMaster> templates =
+						templateService.findTemplates(cfgEventType, cfgAlertType);
+
+				if (templates == null || templates.isEmpty()) {
+					String error = "Template Configuration missing";
+					dltService.logDlt(payload, headers, error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+					return;
+				}
+
+				vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
+
+				// ================= STAGE 6 =================
+				vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
+
+				processTemplates(messageType, templates, payload);
+
+				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
+
+			} else {
+				String error = "Invalid input";
+				dltService.logDlt(payload, headers, error);
+				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
+			}
+
+		} catch (Exception e) {
+			log.error("Exception", e);
+			vlog.stageError(2, "CONSUMER CORE", e.getMessage(), null, eventId);
+		}
 	}
 
-	public String extractCustomFieldDetails(String payload) throws JsonProcessingException {
-		ObjectMapper mapper = new ObjectMapper();
-		JsonNode rootNode = mapper.readTree(payload);
-
+	public String extractCustomFieldDetails(String payload) throws Exception {
+		JsonNode rootNode = objectMapper.readTree(payload);
 		JsonNode customFieldDetails = rootNode.path("payload").path("customFieldDetails");
-
-		// print as JSON
-		String result = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(customFieldDetails);
-
-		return result;
+		return objectMapper.writeValueAsString(customFieldDetails);
 	}
 
 	public static boolean isNullOrEmpty(String value) {
@@ -154,210 +144,82 @@ public class NotificationService {
 	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
-			//log.info("No templates available");
-			//return;
-			String errorMessage =
-					"No templates available";
-
-			log.info(errorMessage);
-
-			dltService.logDlt(payload, null, errorMessage);
-
+			dltService.logDlt(payload, null, "No templates available");
 			return;
 		}
 
 		switch (value.toUpperCase()) {
-
-		case "SMS":
-			processSingle(templateMap.get("SMS"), "SMS", payload);
-			break;
-
-		case "EMAIL":
-			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
-			break;
-
-		case "BOTH":
-			processSingle(templateMap.get("SMS"), "SMS", payload);
-			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
-			break;
-
-		default:
-			log.info("Invalid message type: " + value);
+			case "SMS":
+				processSingle(templateMap.get("SMS"), "SMS", payload);
+				break;
+			case "EMAIL":
+				processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+				break;
+			case "BOTH":
+				processSingle(templateMap.get("SMS"), "SMS", payload);
+				processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+				break;
 		}
 	}
 
-	private NotificationRequest processSingle(
-	        TemplateMaster template,
-	        String type,
-	        String payload) {
+	private NotificationRequest processSingle(TemplateMaster template, String type, String payload) {
 
-	    if (template == null) {
-	       // log.info(type + " template not found");
-	      //  return null;
-			String errorMessage =
-					"No templates available";
-
-			log.info(errorMessage);
-
-			dltService.logDlt(payload, null, errorMessage);
-
+		if (template == null) {
+			dltService.logDlt(payload, null, "No templates available");
 			return null;
-	    }
+		}
 
-	    try {
-	        ObjectMapper mapper = new ObjectMapper();
+		try {
+			JsonNode templateJson = objectMapper.readTree(template.getTemplateParameters());
+			JsonNode payloadJson = objectMapper.readTree(payload);
 
-	        JsonNode templateJson = mapper.readTree(template.getTemplateParameters());
-	        JsonNode payloadJson = mapper.readTree(payload);
+			Map<String, String> resolvedParams = new HashMap<>();
 
-	        log.info("Template Parameters {}", templateJson.toString());
+			for (JsonNode param : templateJson.path("templateParams")) {
+				String key = param.asText();
+				String value = findValue(payloadJson, key);
 
-	        // 🔥 Extract templateParams
-	        JsonNode paramsArray = templateJson.path("templateParams");
-
-	        Map<String, String> resolvedParams = new HashMap<>();
-
-	        if (paramsArray.isArray()) {
-
-	            for (JsonNode param : paramsArray) {
-
-	                String key = param.asText();
-	                String value = findValue(payloadJson, key);
-
-	                if (value == null) {
-						String errorMessage =
-								"Data corrupted: Missing field -> " + key;
-
-						log.info(errorMessage);
-
-						dltService.logDlt(payload, null, errorMessage);
-
-						return null;
-	                	//log.info("❌ Data corrupted: Missing field -> " + key);
-	                	//return null;
-	                }
-
-	                resolvedParams.put(key, value);
-	            }
-	        }
-
-	        // 🔥 Final request object
-	        NotificationRequest request = new NotificationRequest();
-	        request.setType(type);
-	        request.setTemplateParams(resolvedParams);
-
-	        // ======================
-	        // 🔹 SMS
-	        // ======================
-	        if ("SMS".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
-
-	            SmsRequest sms = new SmsRequest();
-
-	            sms.setFrom(templateJson.path("from").asText());
-	            sms.setMessage(templateJson.path("message").asText());
-	            sms.setTemplate(templateJson.path("template").asText());
-	            sms.setCallbackUrl(templateJson.path("callbackUrl").asText());
-	            sms.setReferenceId(templateJson.path("referenceId").asText());
-	            sms.setNotificationType(templateJson.path("notificationType").asText());
-
-	            String mobile = findValue(payloadJson, "mobileNumber");
-
-	            if (mobile == null || mobile.isEmpty()) {
-					String errorMessage =
-							"Missing mobileNumber in payload";
-
-					log.info(errorMessage);
-
-					dltService.logDlt(payload, null, errorMessage);
-
+				if (value == null) {
+					dltService.logDlt(payload, null, "Missing field " + key);
 					return null;
-	            	//log.error("❌ Missing mobileNumber in payload");
-	            	//return null;
-	            }
+				}
 
-	            sms.setMobileNumber(mobile);
+				resolvedParams.put(key, value);
+			}
 
-	            request.setSms(sms);
-	        }
+			NotificationRequest request = new NotificationRequest();
+			request.setType(type);
+			request.setTemplateParams(resolvedParams);
 
-	        // ======================
-	        // 🔹 EMAIL
-	        // ======================
-	        if ("EMAIL".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
+			return request;
 
-	            EmailRequest email = new EmailRequest();
-
-	            email.setFrom(templateJson.path("from").asText());
-	            email.setCc(templateJson.path("cc").asText());
-	            email.setBcc(templateJson.path("bcc").asText());
-	            email.setSubject(templateJson.path("subject").asText());
-	            email.setBody(templateJson.path("body").asText());
-	            email.setTemplate(templateJson.path("template").asText());
-
-	            String to = findValue(payloadJson, "to");
-
-	            if (to == null || to.isEmpty()) {
-					String errorMessage =
-							"Missing to in payload";
-
-					log.info(errorMessage);
-
-					dltService.logDlt(payload, null, errorMessage);
-
-					return null;
-	            	//log.error("❌ Missing 'to' in payload");
-	            	//return null;
-	            }
-
-	            email.setTo(to);
-
-	            request.setEmail(email);
-	        }
-
-	        log.error("Final Request"+request);
-	        return request;
-
-	    } catch (Exception e) {
-			String errorMessage =
-					"Error processing template: {}";
-
-			log.info(errorMessage);
-
-			dltService.logDlt(payload, null, errorMessage);
-
+		} catch (Exception e) {
+			dltService.logDlt(payload, null, "Error processing template");
 			return null;
-	       // log.error("❌ Error processing template: {}", e.getMessage(), e);
-	       // return null;
-	    }
+		}
 	}
 
+	private String findValue(JsonNode node, String key) {
 
-	private String findValue(JsonNode node, String targetKey) {
+		if (node == null) return null;
 
-	    if (node == null) return null;
+		if (node.has(key)) return node.get(key).asText();
 
-	    // Direct match
-	    if (node.has(targetKey)) {
-	        return node.get(targetKey).asText();
-	    }
+		if (node.isObject()) {
+			Iterator<Map.Entry<String, JsonNode>> it = node.fields();
+			while (it.hasNext()) {
+				String val = findValue(it.next().getValue(), key);
+				if (val != null) return val;
+			}
+		}
 
-	    // Traverse objects
-	    if (node.isObject()) {
-	        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext();) {
-	            Map.Entry<String, JsonNode> entry = it.next();
-	            String result = findValue(entry.getValue(), targetKey);
-	            if (result != null) return result;
-	        }
-	    }
+		if (node.isArray()) {
+			for (JsonNode child : node) {
+				String val = findValue(child, key);
+				if (val != null) return val;
+			}
+		}
 
-	    // Traverse arrays
-	    if (node.isArray()) {
-	        for (JsonNode child : node) {
-	            String result = findValue(child, targetKey);
-	            if (result != null) return result;
-	        }
-	    }
-
-	    return null;
+		return null;
 	}
 }
