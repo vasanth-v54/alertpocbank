@@ -24,6 +24,7 @@ public class NotificationService {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final DltService dltService;
 	private final VerticalLogger vlog;
+	Map<String, String> emptyHeaders = new HashMap<>();
 
 	public NotificationService(AppConfigService configService,
 							   RoutingKeyConfigService routingService,
@@ -138,7 +139,8 @@ public class NotificationService {
 	}
 
 	public static boolean isNullOrEmpty(String value) {
-		return value == null || value.isEmpty();
+		return value == null || value.trim().isEmpty()
+				|| value.equalsIgnoreCase("null");
 	}
 
 	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
@@ -173,13 +175,44 @@ public class NotificationService {
 			JsonNode templateJson = objectMapper.readTree(template.getTemplateParameters());
 			JsonNode payloadJson = objectMapper.readTree(payload);
 
+			String email = findValue(payloadJson, "to");
+			String mobile = findValue(payloadJson, "mobileNumber");
+
+			// 🔥 Validation based on message type
+			if ("EMAIL".equalsIgnoreCase(type)) {
+
+				if (isNullOrEmpty(email)) {
+					dltService.logDlt(payload, new HashMap<>(),
+							"Missing email (to) for EMAIL type");
+					return null;
+				}
+			}
+
+			if ("SMS".equalsIgnoreCase(type)) {
+
+				if (isNullOrEmpty(mobile)) {
+					dltService.logDlt(payload, new HashMap<>(),
+							"Missing mobileNumber for SMS type");
+					return null;
+				}
+			}
+
+			if ("BOTH".equalsIgnoreCase(type)) {
+
+				if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
+					dltService.logDlt(payload, new HashMap<>(),
+							"Missing email or mobileNumber for BOTH type");
+					return null;
+				}
+			}
+
 			Map<String, String> resolvedParams = new HashMap<>();
 
 			for (JsonNode param : templateJson.path("templateParams")) {
 				String key = param.asText();
 				String value = findValue(payloadJson, key);
 
-				if (value == null) {
+				if (isNullOrEmpty(value)) {
 					dltService.logDlt(payload, new HashMap<>(), "Missing field " + key);
 					return null;
 				}
@@ -194,7 +227,8 @@ public class NotificationService {
 			return request;
 
 		} catch (Exception e) {
-			dltService.logDlt(payload, new HashMap<>(), "Error processing template");
+			String errorMessage = "Error processing template: " + e.getMessage();
+			dltService.logDlt(payload, new HashMap<>(), errorMessage);
 			return null;
 		}
 	}
