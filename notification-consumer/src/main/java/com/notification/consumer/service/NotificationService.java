@@ -1,6 +1,8 @@
 package com.notification.consumer.service;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -142,30 +144,113 @@ public class NotificationService {
 
 	private void processSingle(TemplateMaster template, String type, String payload) {
 
-		if (template == null) {
-			log.info(type + " template not found");
-			return;
-		}
+	    if (template == null) {
+	        log.info(type + " template not found");
+	        return;
+	    }
 
-		try {
-			ObjectMapper mapper = new ObjectMapper();
-			JsonNode json = mapper.readTree(template.getTemplateParameters());
+	    try {
+	        ObjectMapper mapper = new ObjectMapper();
 
-			log.info("Template Parameters " + json.toString());
+	        JsonNode templateJson = mapper.readTree(template.getTemplateParameters());
+	        JsonNode payloadJson = mapper.readTree(payload);
 
-			if ("SMS".equalsIgnoreCase(type)) {
+	        log.info("Template Parameters {}", templateJson.toString());
 
-				// 👉 call SMS service here
+	        // 🔥 Extract templateParams array
+	        JsonNode paramsArray = templateJson.path("templateParams");
 
-			} else if ("EMAIL".equalsIgnoreCase(type)) {
+	        Map<String, String> resolvedParams = new HashMap<>();
 
+	        if (paramsArray.isArray()) {
 
-				// 👉 call Email service here
-			}
+	            for (JsonNode param : paramsArray) {
 
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	                String key = param.asText();
+
+	                String value = findValue(payloadJson, key);
+
+	                if (value == null) {
+	                    log.info("❌ Data corrupted: Missing field -> " + key);
+	                }
+
+	                resolvedParams.put(key, value);
+	            }
+	        }
+
+	        // ======================
+	        // 🔹 SMS PROCESSING
+	        // ======================
+	        if ("SMS".equalsIgnoreCase(type)) {
+
+	            String mobile = findValue(payloadJson, "mobileNumber");
+
+	            if (mobile == null || mobile.isEmpty()) {
+	            	log.info("❌ Missing mobileNumber in payload");
+	            }
+
+	            String messageTemplate = templateJson.path("message").asText();
+
+	            log.info("SMS Mobile: {}", mobile);
+	            log.info("Resolved Params: {}", resolvedParams);
+
+	            // 👉 Replace placeholders if needed
+	            // 👉 Call SMS service
+
+	        }
+
+	        // ======================
+	        // 🔹 EMAIL PROCESSING
+	        // ======================
+	        else if ("EMAIL".equalsIgnoreCase(type)) {
+
+	            String to = findValue(payloadJson, "to");
+
+	            if (to == null || to.isEmpty()) {
+	            	log.info("❌ Missing 'to' in payload");
+	            }
+
+	            String subject = templateJson.path("subject").asText();
+	            String body = templateJson.path("body").asText();
+
+	            log.info("Email To: {}", to);
+	            log.info("Resolved Params: {}", resolvedParams);
+
+	            // 👉 Call Email service
+	        }
+
+	    } catch (Exception e) {
+	        log.error("❌ Error processing template: {}", e.getMessage(), e);
+	    }
 	}
 
+	
+	private String findValue(JsonNode node, String targetKey) {
+
+	    if (node == null) return null;
+
+	    // Direct match
+	    if (node.has(targetKey)) {
+	        return node.get(targetKey).asText();
+	    }
+
+	    // Traverse objects
+	    if (node.isObject()) {
+	        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext();) {
+	            Map.Entry<String, JsonNode> entry = it.next();
+	            String result = findValue(entry.getValue(), targetKey);
+	            if (result != null) return result;
+	        }
+	    }
+
+	    // Traverse arrays
+	    if (node.isArray()) {
+	        for (JsonNode child : node) {
+	            String result = findValue(child, targetKey);
+	            if (result != null) return result;
+	        }
+	    }
+
+	    return null;
+	}
 }
