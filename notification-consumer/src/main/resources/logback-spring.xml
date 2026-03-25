@@ -1,43 +1,77 @@
 <configuration>
-
+ 
     <!-- Log Pattern -->
-    <property name="LOG_PATTERN"
+<property name="LOG_PATTERN"
               value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
-
+ 
     <!-- Console Appender -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
-        </encoder>
-    </appender>
-
+<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+<encoder>
+<pattern>${LOG_PATTERN}</pattern>
+</encoder>
+</appender>
+ 
     <!-- File Appender -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+ 
         <!-- Fixed file name -->
-        <file>logs/app.log</file>
-
+<file>logs/app.log</file>
+ 
         <!-- Hourly rolling -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-
+<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+ 
             <!-- yyyy-MM-dd_HH → hourly -->
-            <fileNamePattern>logs/app.%d{yyyy-MM-dd_HH}.log</fileNamePattern>
-
+<fileNamePattern>logs/app.%d{yyyy-MM-dd_HH}.log</fileNamePattern>
+ 
             <!-- keep last 7 days -->
-            <maxHistory>7</maxHistory>
-
+<maxHistory>7</maxHistory>
+ 
         </rollingPolicy>
-
+ 
         <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
-        </encoder>
-
+<pattern>${LOG_PATTERN}</pattern>
+</encoder>
+ 
     </appender>
-
-    <!-- Root Logger -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-    </root>
-
+ 
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         VERTICAL PIPELINE LOGGER — patched in, nothing above changed
+         Writes to its own file: logs/pipeline.log
+         Format:  2026-03-16 10:23:45.101 | >>>STAGE 2 STARTED ...
+         additivity=false → these lines never bleed into app.log or CONSOLE
+    ════════════════════════════════════════════════════════════════════════ -->
+<appender name="PIPELINE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+ 
+        <!-- Fixed active file -->
+<file>logs/pipeline.log</file>
+ 
+        <!-- Same hourly rolling strategy as your FILE appender -->
+<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+<fileNamePattern>logs/pipeline.%d{yyyy-MM-dd_HH}.log</fileNamePattern>
+<!-- keep last 7 days — same as yours -->
+<maxHistory>7</maxHistory>
+</rollingPolicy>
+ 
+        <encoder>
+<!-- Pipe-prefix pattern matching your sample logs exactly:
+                 2026-03-16 10:23:45.101 | ================...
+                 2026-03-16 10:23:45.102 |     EVENT_ID  :  abc123        -->
+<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %msg%n</pattern>
+</encoder>
+ 
+    </appender>
+ 
+    <!-- VERTICAL_LOGGER must match exactly what VerticalLoggerImpl uses:
+         LoggerFactory.getLogger("VERTICAL_LOGGER")
+         additivity=false keeps it OUT of app.log and console          -->
+<logger name="VERTICAL_LOGGER" level="INFO" additivity="false">
+<appender-ref ref="PIPELINE_FILE"/>
+</logger>
+ 
+    <!-- Root Logger — untouched -->
+<root level="INFO">
+<appender-ref ref="CONSOLE"/>
+<appender-ref ref="FILE"/>
+</root>
+ 
 </configuration>
