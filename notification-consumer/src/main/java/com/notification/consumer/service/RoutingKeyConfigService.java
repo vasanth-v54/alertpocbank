@@ -1,50 +1,51 @@
 package com.notification.consumer.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.notification.consumer.entity.RoutingKeyConfig;
-import com.notification.consumer.repository.RoutingKeyConfigRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
+import com.notification.consumer.dto.ValidationResult;
+import com.notification.consumer.entity.RoutingKeyConfig;
+import com.notification.consumer.repository.RoutingKeyConfigRepository;
+import com.notification.consumer.util.JsonValidator;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class RoutingKeyConfigService {
 
-    private final RoutingKeyConfigRepository repository;
-    /*public RoutingKeyConfigService(RoutingKeyConfigRepository repository) {
+	private final RoutingKeyConfigRepository repository;
+	private static final Logger log = LoggerFactory.getLogger(RoutingKeyConfigService.class);
+	/*public RoutingKeyConfigService(RoutingKeyConfigRepository repository) {
 		super();
 		this.repository = repository;
 	}*/
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	public RoutingKeyConfig findMatchingConfig(String payload) {
 
-    public RoutingKeyConfig findMatchingConfig(String eventType, String alertType) {
+		List<RoutingKeyConfig> configs = repository.findByIsActiveTrue();
 
-        List<RoutingKeyConfig> configs = repository.findByIsActiveTrue();
+		for (RoutingKeyConfig config : configs) {
 
-        for (RoutingKeyConfig config : configs) {
+			try {
 
-            try {
-                JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
+				ValidationResult result = JsonValidator.validate(config.getTemplateIdentifiers(), payload);
 
-                String configEventType = json.path("eventType").asText();
-                String configAlertType = json.path("alertType").asText();
+				if (result.isSuccess()) {
+					log.info("PASS :"+config);
+					return config;
+				} else {
+					log.info("FAIL: " + result.getMessage());
+				}
 
-                if (eventType.equalsIgnoreCase(configEventType)
-                        && alertType.equalsIgnoreCase(configAlertType)) {
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 
-                    return config;
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        return null;
-    }
+		return null;
+	}
 }

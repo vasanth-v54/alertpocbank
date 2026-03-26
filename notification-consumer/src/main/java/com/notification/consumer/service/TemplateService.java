@@ -15,38 +15,49 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TemplateService {
 
-    private final TemplateMasterRepository repository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+	private final TemplateMasterRepository repository;
+	public TemplateService(TemplateMasterRepository repository) {
+		super();
+		this.repository = repository;
+	}
 
-	public Map<String, TemplateMaster> findTemplates(String eventType, String alertType) {
+	public Map<String, TemplateMaster> findTemplates(String config, String payload) {
 
-        List<TemplateMaster> templates = repository.findByIsActiveTrue();
+		List<TemplateMaster> templates = repository.findByIsActiveTrue();
 
-        Map<String, TemplateMaster> resultMap = new HashMap<>();
+		Map<String, TemplateMaster> resultMap = new HashMap<>();
 
-        for (TemplateMaster template : templates) {
+		for (TemplateMaster template : templates) {
 
-            try {
-                JsonNode json = objectMapper.readTree(template.getTemplateIdentifiersRef());
+			try {
 
-                String dbAlertType = json.path("alertType").asText();
-                String dbEventType = json.path("eventType").asText();
+				if (isEqual(template.getTemplateIdentifiersRef(), config)) {
 
-                if (alertType != null && eventType != null
-                        && alertType.equalsIgnoreCase(dbAlertType)
-                        && eventType.equalsIgnoreCase(dbEventType)) {
+					// 🔥 KEY = message_type column
+					String messageType = template.getMessageType();
 
-                    // 🔥 KEY = message_type column
-                    String messageType = template.getMessageType();
+					resultMap.put(messageType, template);
+				}
 
-                    resultMap.put(messageType, template);
-                }
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+		return resultMap;
+	}
 
-        return resultMap;
-    }
+	public static boolean isEqual(String json1, String json2) {
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			JsonNode node1 = mapper.readTree(json1);
+			JsonNode node2 = mapper.readTree(json2);
+
+			return node1.equals(node2);
+
+		} catch (Exception e) {
+			throw new RuntimeException("Invalid JSON", e);
+		}
+	}
 }

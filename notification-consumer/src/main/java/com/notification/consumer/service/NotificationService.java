@@ -1,5 +1,6 @@
 package com.notification.consumer.service;
 
+import java.net.Authenticator.RequestorType;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -12,6 +13,7 @@ import com.notification.consumer.entity.*;
 import com.notification.consumer.dlt.*;
 import com.notification.consumer.dto.*;
 import com.notification.consumer.logger.VerticalLogger;
+import com.notification.consumer.util.JsonSearchUtil;
 
 @Service
 public class NotificationService {
@@ -26,11 +28,8 @@ public class NotificationService {
 	private final VerticalLogger vlog;
 	Map<String, String> emptyHeaders = new HashMap<>();
 
-	public NotificationService(AppConfigService configService,
-							   RoutingKeyConfigService routingService,
-							   TemplateService templateService,
-							   DltService dltService,
-							   VerticalLogger vlog) {
+	public NotificationService(AppConfigService configService, RoutingKeyConfigService routingService,
+			TemplateService templateService, DltService dltService, VerticalLogger vlog) {
 		this.configService = configService;
 		this.routingService = routingService;
 		this.templateService = templateService;
@@ -80,10 +79,34 @@ public class NotificationService {
 				return;
 			}
 
-			if ((!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
+			boolean status = false;
+			String precheck = null;
+			// Prechecks
+			if (messageType.equalsIgnoreCase("SMS")) {
+				status = JsonSearchUtil.search(payload, "mobileNumber");
+				if (!status) {
+					precheck = "SMS | 'mobileNmber' is missing";
+				}
+			} else if (messageType.equalsIgnoreCase("EMAIL")) {
+				status = JsonSearchUtil.search(payload, "to");
+				if (!status) {
+					precheck = "EMAIL | 'to' is missing";
+				}
+			} else if (messageType.equalsIgnoreCase("Both")) {
+				boolean s1 = JsonSearchUtil.search(payload, "mobileNumber");
+				boolean s2 = JsonSearchUtil.search(payload, "to");
+				if (s1 && s2) {
+					status = true;
+				} else {
+					status = false;
+					precheck = ("Both | Mobile Number or To is missing in payload");
+				}
+			}
+
+			if (status && (!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
 					|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
 
-				RoutingKeyConfig config = routingService.findMatchingConfig(eventType, alertType);
+				RoutingKeyConfig config = routingService.findMatchingConfig(payload);
 
 				if (config == null) {
 					String error = "Routing Key Configuration missing";
@@ -91,18 +114,15 @@ public class NotificationService {
 					vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 					return;
 				}
-
-				JsonNode json = objectMapper.readTree(config.getTemplateIdentifiers());
-				String cfgEventType = json.path("eventType").asText();
-				String cfgAlertType = json.path("alertType").asText();
+				log.info("Result Config: " + config);
 
 				vlog.stageEnd(4, "ROUTING CONFIG LOOKUP", "SUCCESS", eventId);
 
 				// ================= STAGE 5 =================
 				vlog.stageStart(5, "TEMPLATE LOOKUP", eventId);
 
-				Map<String, TemplateMaster> templates =
-						templateService.findTemplates(cfgEventType, cfgAlertType);
+				Map<String, TemplateMaster> templates = templateService.findTemplates(config.getTemplateIdentifiers(),
+						payload);
 
 				if (templates == null || templates.isEmpty()) {
 					String error = "Template Configuration missing";
@@ -110,7 +130,7 @@ public class NotificationService {
 					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 					return;
 				}
-
+				log.info("Result Templates: " + templates);
 				vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
 
 				// ================= STAGE 6 =================
@@ -121,7 +141,7 @@ public class NotificationService {
 				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 
 			} else {
-				String error = "Invalid input";
+				String error = "Invalid input " + precheck;
 				dltService.logDlt(payload, headers, error);
 				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 			}
@@ -139,8 +159,7 @@ public class NotificationService {
 	}
 
 	public static boolean isNullOrEmpty(String value) {
-		return value == null || value.trim().isEmpty()
-				|| value.equalsIgnoreCase("null");
+		return value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null");
 	}
 
 	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
@@ -151,21 +170,21 @@ public class NotificationService {
 		}
 
 		switch (value.toUpperCase()) {
-			case "SMS":
-				processSingle(templateMap.get("SMS"), "SMS", payload);
-				break;
-			case "EMAIL":
-				processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
-				break;
-			case "BOTH":
-				processSingle(templateMap.get("SMS"), "SMS", payload);
-				processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
-				break;
+		case "SMS":
+			processSingle(templateMap.get("SMS"), "SMS", payload);
+			break;
+		case "EMAIL":
+			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+			break;
+		case "BOTH":
+			processSingle(templateMap.get("SMS"), "SMS", payload);
+			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+			break;
 		}
 	}
 
 	private NotificationRequest processSingle(TemplateMaster template, String type, String payload) {
-
+		NotificationRequest request = new NotificationRequest();
 		if (template == null) {
 			dltService.logDlt(payload, new HashMap<>(), "No templates available");
 			return null;
@@ -179,32 +198,59 @@ public class NotificationService {
 			String mobile = findValue(payloadJson, "mobileNumber");
 
 			// 🔥 Validation based on message type
-			if ("EMAIL".equalsIgnoreCase(type)) {
+			if ("EMAIL".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(email)) {
-					dltService.logDlt(payload, new HashMap<>(),
-							"Missing email (to) for EMAIL type");
+					dltService.logDlt(payload, new HashMap<>(), "Missing email (to) for EMAIL type");
 					return null;
 				}
+				
+				if ("BOTH".equalsIgnoreCase(type)) {
+
+					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
+						dltService.logDlt(payload, new HashMap<>(), "Missing email or mobileNumber for BOTH type");
+						return null;
+					}
+				}
+				EmailRequest emailRequest = new EmailRequest();
+
+				emailRequest.setFrom(templateJson.path("from").asText());
+				emailRequest.setCc(templateJson.path("cc").asText());
+				emailRequest.setBcc(templateJson.path("bcc").asText());
+				emailRequest.setSubject(templateJson.path("subject").asText());
+				emailRequest.setBody(templateJson.path("body").asText());
+				emailRequest.setTemplate(templateJson.path("template").asText());
+				emailRequest.setTo(email);
+				request.setEmail(emailRequest);
 			}
 
-			if ("SMS".equalsIgnoreCase(type)) {
+			if ("SMS".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(mobile)) {
-					dltService.logDlt(payload, new HashMap<>(),
-							"Missing mobileNumber for SMS type");
+					dltService.logDlt(payload, new HashMap<>(), "Missing mobileNumber for SMS type");
 					return null;
 				}
-			}
+				
+				if ("BOTH".equalsIgnoreCase(type)) {
 
-			if ("BOTH".equalsIgnoreCase(type)) {
-
-				if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
-					dltService.logDlt(payload, new HashMap<>(),
-							"Missing email or mobileNumber for BOTH type");
-					return null;
+					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
+						dltService.logDlt(payload, new HashMap<>(), "Missing email or mobileNumber for BOTH type");
+						return null;
+					}
 				}
+				SmsRequest sms = new SmsRequest();
+
+				sms.setFrom(templateJson.path("from").asText());
+				sms.setMessage(templateJson.path("message").asText());
+				sms.setTemplate(templateJson.path("template").asText());
+				sms.setCallbackUrl(templateJson.path("callbackUrl").asText());
+				sms.setReferenceId(templateJson.path("referenceId").asText());
+				sms.setNotificationType(templateJson.path("notificationType").asText());
+				sms.setMobileNumber(mobile);
+				request.setSms(sms);
 			}
+
+			
 
 			Map<String, String> resolvedParams = new HashMap<>();
 
@@ -220,10 +266,10 @@ public class NotificationService {
 				resolvedParams.put(key, value);
 			}
 
-			NotificationRequest request = new NotificationRequest();
+			
 			request.setType(type);
 			request.setTemplateParams(resolvedParams);
-
+			log.info("Final Notification Request: " + request);
 			return request;
 
 		} catch (Exception e) {
@@ -235,22 +281,26 @@ public class NotificationService {
 
 	private String findValue(JsonNode node, String key) {
 
-		if (node == null) return null;
+		if (node == null)
+			return null;
 
-		if (node.has(key)) return node.get(key).asText();
+		if (node.has(key))
+			return node.get(key).asText();
 
 		if (node.isObject()) {
 			Iterator<Map.Entry<String, JsonNode>> it = node.fields();
 			while (it.hasNext()) {
 				String val = findValue(it.next().getValue(), key);
-				if (val != null) return val;
+				if (val != null)
+					return val;
 			}
 		}
 
 		if (node.isArray()) {
 			for (JsonNode child : node) {
 				String val = findValue(child, key);
-				if (val != null) return val;
+				if (val != null)
+					return val;
 			}
 		}
 
