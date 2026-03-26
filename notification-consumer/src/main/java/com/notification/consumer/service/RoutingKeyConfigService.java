@@ -1,5 +1,6 @@
 package com.notification.consumer.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -24,28 +25,29 @@ public class RoutingKeyConfigService {
 		this.repository = repository;
 	}*/
 
-	public RoutingKeyConfig findMatchingConfig(String payload) {
+	public List<RoutingKeyConfig> findMatchingConfigs(String payload) {
 
-		List<RoutingKeyConfig> configs = repository.findByIsActiveTrue();
+	    List<RoutingKeyConfig> configs = repository.findByIsActiveTrue();
+	    List<RoutingKeyConfig> matchedConfigs = new ArrayList<>();
 
-		for (RoutingKeyConfig config : configs) {
+	    for (RoutingKeyConfig config : configs) {
 
-			try {
+	        try {
+	            ValidationResult result =
+	                    JsonValidator.validate(config.getTemplateIdentifiers(), payload);
 
-				ValidationResult result = JsonValidator.validate(config.getTemplateIdentifiers(), payload);
+	            if (result.isSuccess()) {
+	                log.info("PASS: {}", config);
+	                matchedConfigs.add(config); // ✅ collect instead of return
+	            } else {
+	                log.info("FAIL: {}", result.getMessage());
+	            }
 
-				if (result.isSuccess()) {
-					log.info("PASS :"+config);
-					return config;
-				} else {
-					log.info("FAIL: " + result.getMessage());
-				}
+	        } catch (Exception e) {
+	            log.error("Error processing config: {}", config, e);
+	        }
+	    }
 
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
-		return null;
+	    return matchedConfigs; // ✅ return all matches
 	}
 }

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -93,7 +94,7 @@ public class NotificationService {
 			if (messageType.equalsIgnoreCase("SMS")) {
 				status = JsonSearchUtil.search(payload, "mobileNumber");
 				if (!status) {
-					precheck = "SMS | 'mobileNmber' is missing";
+					precheck = "SMS | 'mobileNumber' is missing";
 				}
 			} else if (messageType.equalsIgnoreCase("EMAIL")) {
 				status = JsonSearchUtil.search(payload, "to");
@@ -114,39 +115,41 @@ public class NotificationService {
 			if (status && (!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
 					|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
 
-				RoutingKeyConfig config = routingService.findMatchingConfig(payload);
+				List<RoutingKeyConfig> configs = routingService.findMatchingConfigs(payload);
 
-				if (config == null) {
+				if (configs.isEmpty()) {
 					String error = "Routing Key Configuration missing";
 					dltService.logDlt(payload, headers, error);
 					vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 					return;
 				}
-				log.info("Result Config: " + config);
+				log.info("Result Config: " + configs);
 
 				vlog.stageEnd(4, "ROUTING CONFIG LOOKUP", "SUCCESS", eventId);
 
 				// ================= STAGE 5 =================
 				vlog.stageStart(5, "TEMPLATE LOOKUP", eventId);
+				for (RoutingKeyConfig config : configs) {
 
-				Map<String, TemplateMaster> templates = templateService.findTemplates(config.getTemplateIdentifiers(),
-						payload);
+					Map<String, TemplateMaster> templates = templateService
+							.findTemplates(config.getTemplateIdentifiers(), payload);
 
-				if (templates == null || templates.isEmpty()) {
-					String error = "Template Configuration missing";
-					dltService.logDlt(payload, headers, error);
-					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
-					return;
+					if (templates == null || templates.isEmpty()) {
+						String error = "Template Configuration missing";
+						dltService.logDlt(payload, headers, error);
+						vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+						return;
+					}
+					log.info("Result Templates: " + templates);
+					vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
+
+					// ================= STAGE 6 =================
+					vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
+
+					processTemplates(messageType, templates, payload, headers);
+
+					vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 				}
-				log.info("Result Templates: " + templates);
-				vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
-
-				// ================= STAGE 6 =================
-				vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
-
-				processTemplates(messageType, templates, payload, headers);
-
-				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 
 			} else {
 				String error = "Invalid input " + precheck;
@@ -170,7 +173,8 @@ public class NotificationService {
 		return value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null");
 	}
 
-	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload, Map<String, String> headers) {
+	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload,
+			Map<String, String> headers) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
 			dltService.logDlt(payload, headers, "No templates available");
@@ -191,7 +195,8 @@ public class NotificationService {
 		}
 	}
 
-	private NotificationRequest processSingle(TemplateMaster template, String type, String payload, Map<String, String> headers) {
+	private NotificationRequest processSingle(TemplateMaster template, String type, String payload,
+			Map<String, String> headers) {
 		NotificationRequest request = new NotificationRequest();
 		if (template == null) {
 			dltService.logDlt(payload, headers, "No templates available");

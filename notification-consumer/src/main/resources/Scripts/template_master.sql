@@ -203,7 +203,7 @@ INSERT INTO template_master (
         'alertType','LOAN_PAST_DUE_REMINDER',
         'eventType','ArrangementEvents-LoanPastDueReminder_AA_ACTIVITY_EVENT',
         'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
-        'messageType','EMAIL',
+        'messageType','SMS',
         'legalCompanyCode','RB',
         'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
     ),'TPL_SMS_LOAN_PAST_DUE_REMINDER',
@@ -271,7 +271,7 @@ INSERT INTO template_master (
         'alertType','FUND_TRANSFER_SUCCESSFUL',
         'eventType','PaymentEvents-FundTransferSuccessful_TPH_ACTIVITY_EVENT',
         'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
-        'messageType','EMAIL',
+        'messageType','SMS',
         'legalCompanyCode','RB',
         'application','TPH.DIGI.PAYMENTS,PAYMENTS-FUND-TRANSFER-SUCCESS'
     ),'TPL_SMS_FUND_TRANSFER_SUCCESSFUL',

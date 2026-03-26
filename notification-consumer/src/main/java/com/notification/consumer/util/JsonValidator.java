@@ -8,126 +8,125 @@ import java.util.*;
 
 public class JsonValidator {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+	private static final ObjectMapper mapper = new ObjectMapper();
 
- // Keys to ignore (case-insensitive) 
-    private static final Set<String> IGNORE_KEYS = new HashSet<>(Arrays.asList("messagetype","MessageType"));
+	// Keys to ignore (case-insensitive)
+	private static final Set<String> IGNORE_KEYS = new HashSet<>(Arrays.asList("messagetype", "MessageType"));
 
-    public static ValidationResult validate(String configJson, String payloadJson) {
-        try {
-            JsonNode configNode = mapper.readTree(configJson);
-            JsonNode payloadNode = mapper.readTree(payloadJson);
+	public static ValidationResult validate(String configJson, String payloadJson) {
+		try {
+			JsonNode configNode = mapper.readTree(configJson);
+			JsonNode payloadNode = mapper.readTree(payloadJson);
 
-            return validateNode(configNode, payloadNode, "", payloadNode);
+			return validateNode(configNode, payloadNode, "", payloadNode);
 
-        } catch (Exception e) {
-            return ValidationResult.fail("Invalid JSON format: " + e.getMessage());
-        }
-    }
+		} catch (Exception e) {
+			return ValidationResult.fail("Invalid JSON format: " + e.getMessage());
+		}
+	}
 
-    private static ValidationResult validateNode(JsonNode configNode,
-                                                 JsonNode payloadNode,
-                                                 String path,
-                                                 JsonNode rootPayload) {
+	private static ValidationResult validateNode(JsonNode configNode, JsonNode payloadNode, String path,
+			JsonNode rootPayload) {
 
-        Iterator<Map.Entry<String, JsonNode>> fields = configNode.fields();
+		List<String> errors = new ArrayList<>();
 
-        while (fields.hasNext()) {
-            Map.Entry<String, JsonNode> entry = fields.next();
-            String key = entry.getKey();
-            JsonNode expectedValue = entry.getValue();
+		Iterator<Map.Entry<String, JsonNode>> fields = configNode.fields();
 
-            String currentPath = path.isEmpty() ? key : path + "." + key;
+		while (fields.hasNext()) {
+			Map.Entry<String, JsonNode> entry = fields.next();
+			String key = entry.getKey();
+			JsonNode expectedValue = entry.getValue();
 
-            // ✅ 1. Ignore keys
-            if (IGNORE_KEYS.contains(key.toLowerCase())) {
-                continue;
-            }
+			String currentPath = path.isEmpty() ? key : path + "." + key;
 
-            // ✅ 2. Conditional check for originatingSource
-            if (key.equalsIgnoreCase("originatingSource")) {
+// ✅ Ignore keys
+			if (IGNORE_KEYS.contains(key.toLowerCase())) {
+				continue;
+			}
 
-                String alertType = getValueIgnoreCase(rootPayload, "alertType");
+// ✅ Conditional check for originatingSource
+			if (key.equalsIgnoreCase("originatingSource")) {
+				String alertType = getValueIgnoreCase(rootPayload, "alertType");
 
-                if (alertType == null ||
-                        !alertType.equalsIgnoreCase("FUND_TRANSFER_SUCCESSFUL")) {
-                    // Skip validation
-                    continue;
-                }
-            }
+				if (alertType == null || !alertType.equalsIgnoreCase("FUND_TRANSFER_SUCCESSFUL")) {
+					continue;
+				}
+			}
 
-            // ✅ 3. Find key (case-insensitive)
-            Map.Entry<String, JsonNode> actualEntry =
-                    findNodeCaseInsensitive(payloadNode, key);
+// ✅ Find key
+			Map.Entry<String, JsonNode> actualEntry = findNodeCaseInsensitive(payloadNode, key);
 
-            if (actualEntry == null) {
-                return ValidationResult.fail("Missing key: " + currentPath);
-            }
+			if (actualEntry == null) {
+				errors.add("Missing key: " + currentPath);
+				continue;
+			}
 
-            JsonNode actualValue = actualEntry.getValue();
+			JsonNode actualValue = actualEntry.getValue();
 
-            // ✅ 4. Value comparison (case-insensitive)
-            if (expectedValue.isValueNode()) {
+// ✅ Value comparison
+			if (expectedValue.isValueNode()) {
 
-                if (!actualValue.asText().equalsIgnoreCase(expectedValue.asText())) {
-                    return ValidationResult.fail(
-                            "Value mismatch at " + currentPath +
-                                    " | Expected: " + expectedValue.asText() +
-                                    " | Actual: " + actualValue.asText()
-                    );
-                }
+				if (!actualValue.asText().equalsIgnoreCase(expectedValue.asText())) {
+					errors.add("Value mismatch at " + currentPath + " | Expected: " + expectedValue.asText()
+							+ " | Actual: " + actualValue.asText());
+				}
 
-            } else if (expectedValue.isObject()) {
+			} else if (expectedValue.isObject()) {
 
-                ValidationResult result =
-                        validateNode(expectedValue, actualValue, currentPath, rootPayload);
+				ValidationResult result = validateNode(expectedValue, actualValue, currentPath, rootPayload);
 
-                if (!result.isSuccess()) return result;
-            }
-        }
+				if (!result.isSuccess()) {
+					errors.add(result.getMessage());
+				}
+			}
+		}
 
-        return ValidationResult.success();
-    }
+// ✅ Final result
+		if (errors.isEmpty()) {
+			return ValidationResult.success();
+		} else {
+			return ValidationResult.fail(String.join(" | ", errors));
+		}
+	}
 
-    /**
-     * Recursive search with CASE-INSENSITIVE key matching
-     */
-    private static Map.Entry<String, JsonNode> findNodeCaseInsensitive(JsonNode node,
-                                                                       String searchKey) {
+	/**
+	 * Recursive search with CASE-INSENSITIVE key matching
+	 */
+	private static Map.Entry<String, JsonNode> findNodeCaseInsensitive(JsonNode node, String searchKey) {
 
-        if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+		if (node.isObject()) {
+			Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
 
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> entry = fields.next();
+			while (fields.hasNext()) {
+				Map.Entry<String, JsonNode> entry = fields.next();
 
-                if (entry.getKey().equalsIgnoreCase(searchKey)) {
-                    return entry;
-                }
+				if (entry.getKey().equalsIgnoreCase(searchKey)) {
+					return entry;
+				}
 
-                Map.Entry<String, JsonNode> result =
-                        findNodeCaseInsensitive(entry.getValue(), searchKey);
+				Map.Entry<String, JsonNode> result = findNodeCaseInsensitive(entry.getValue(), searchKey);
 
-                if (result != null) return result;
-            }
-        }
+				if (result != null)
+					return result;
+			}
+		}
 
-        if (node.isArray()) {
-            for (JsonNode element : node) {
-                Map.Entry<String, JsonNode> result =
-                        findNodeCaseInsensitive(element, searchKey);
-                if (result != null) return result;
-            }
-        }
+		if (node.isArray()) {
+			for (JsonNode element : node) {
+				Map.Entry<String, JsonNode> result = findNodeCaseInsensitive(element, searchKey);
+				if (result != null)
+					return result;
+			}
+		}
 
-        return null;
-    }
+		return null;
+	}
 
-    /**
-     * Get value by key (case-insensitive, deep search)
-     */
-    private static String getValueIgnoreCase(JsonNode node, String key) {
-        Map.Entry<String, JsonNode> entry = findNodeCaseInsensitive(node, key);
-        return entry != null ? entry.getValue().asText() : null;
-    }
+	/**
+	 * Get value by key (case-insensitive, deep search)
+	 */
+	private static String getValueIgnoreCase(JsonNode node, String key) {
+		Map.Entry<String, JsonNode> entry = findNodeCaseInsensitive(node, key);
+		return entry != null ? entry.getValue().asText() : null;
+	}
 }
