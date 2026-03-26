@@ -52,10 +52,30 @@
   },
   "service" : "ConsumerService",
   "environment" : "DEVELOPMENT",
-  "sessionId" : "2217b91c-66d2-4ec0-ac5e-10a6dfa05549",
+  "sessionId" : "60843811-0a0a-428c-935f-5cfba7e3859f",
   "statusCode" : "400",
   "application" : "alertPoc",
-  "correlationId" : "9505afa7-df13-4b47-942d-d246bfa578ae",
+  "correlationId" : "33623285-1307-43fb-ade7-06536771b3e6",
   "browserType" : "Edge",
-  "eventTimeUTC" : "2026-03-24T21:56:41.943954600Z"
+  "eventTimeUTC" : "2026-03-26T07:21:00.824106100Z"
+}, {
+  "severity" : "ERROR",
+  "data" : {
+    "Runtime" : "Java",
+    "Message" : {
+      "headers" : "{event-type=CustomerEvents-CustomerCreated_CU_ACTIVITY_EVENT, alert-type=CUSTOMER_CREATED, event-id=b2c3d4e5-333-999-bcde-ttt5, MessageType=SMS, status=PROCESSED}",
+      "eventId" : "b2c3d4e5-333-999-bcde-ttt5",
+      "payload" : "{\"businessKey\":\"POCBank|PH0099001|CUSTACT260001POCBK7Y\",\"aliasInfo\":null,\"commandType\":null,\"correlationId\":null,\"dateTime\":\"2026-02-27T08:30:00.000+0000\",\"deviceid\":null,\"entityId\":null,\"entityName\":null,\"eventId\":\"b2c3d4e5-333-999-bcde-ttt5\",\"eventSourceId\":\"POCBank\",\"headers\":null,\"operation\":null,\"operationInstanceId\":null,\"organizationId\":null,\"priority\":null,\"sequenceInstanceId\":null,\"sequenceNo\":null,\"serviceRequestComment\":null,\"serviceRequestId\":null,\"sourceRequestIdentifier\":null,\"sourceUri\":\"https://temenos.com/microservice/cloudevents/POCBank\",\"status\":\"PROCESSED\",\"subject\":\"event\",\"tenantId\":null,\"tracecontext\":null,\"transactionDate\":null,\"userId\":null,\"businessObjects\":null,\"eventType\":\"CustomerEvents-CustomerCreated_CU_ACTIVITY_EVENT\",\"payload\":{\"APPLICATIONCUSTOMERDetails\":[{\"applicationcustomerid\":\"300002\",\"applicationcustomername1List\":{\"applicationcustomername1\":[{\"applicationcustomername1\":\"Maria Santos\",\"language\":\"GB\"}]}}],\"eventCommon\":{\"companyId\":\"PH0099001\",\"application\":\"CRM.DIGI.CUSTOMER,CUSTOMER-CREATION-SUCCESS\",\"creationTime\":\"2026-02-27T08:30:00.000Z\",\"today\":\"2026-02-27\",\"customCommon\":{\"timeInLocal\":\"2026-02-27T16:30:00.000 Asia/Manila\",\"ArrangementActivityReference\":\"CUSTACT260001POCBK7Y\",\"ActivityContext\":\"User-Auth\",\"ActivityStatus\":\"AUTH\",\"ImmediateParentReference\":\"CUSTACT260001POCBK7Y\",\"ParentReference\":\"CUSTACT260001POCBK7Y\",\"Simulation\":\"NO\"},\"operator\":\"POCUSR00101\",\"transactionStage\":\"CU.ACT.AUTH.RTN\"},\"customFieldDetails\":{\"MessageType\":\"SMS\",\"mobileNumber\":\"12345\",\"legalCompanyCode\": \"RB\",\"alertType\":\"CUSTOMER_CREATED\",\"Release\":\"R25\",\"originatingsource\":\"https://temenos.com/microservice/cloudevents/POCBank\",\"customer_id\":\"1000230205\",\"customer_name\":\"\",\"timestamp\":\"2026-02-27T08:30:00Z\",\"amount\":\"5000.00\",\"loan_account\":\"1237567890\",\"txn_ref\":\"TPHREF260001POCBK\",\"days_overdue\":\"12\",\"min_amount_due\":\"1500.00\",\"grace_date\":\"2027-03-10\",\"loan_ref\":\"LNREF268001POCBK\",\"beneficiary_name\":\"Maruthi\",\"beneficiary_id\":\"AAACT269002POCBK8M\"}}}",
+      "errorMessage" : "Missing field customer_name"
+    },
+    "Method" : "logDlt"
+  },
+  "service" : "ConsumerService",
+  "environment" : "DEVELOPMENT",
+  "sessionId" : "ece6f70e-5539-4129-9cef-5cb8aebd9554",
+  "statusCode" : "400",
+  "application" : "alertPoc",
+  "correlationId" : "592f94ef-d8ef-4d36-94bc-f887766d59f1",
+  "browserType" : "Edge",
+  "eventTimeUTC" : "2026-03-26T07:24:21.042733200Z"
 } ]

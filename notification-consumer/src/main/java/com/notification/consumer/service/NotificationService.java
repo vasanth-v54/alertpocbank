@@ -144,7 +144,7 @@ public class NotificationService {
 				// ================= STAGE 6 =================
 				vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
 
-				processTemplates(messageType, templates, payload);
+				processTemplates(messageType, templates, payload, headers);
 
 				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 
@@ -170,31 +170,31 @@ public class NotificationService {
 		return value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null");
 	}
 
-	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload) {
+	public void processTemplates(String value, Map<String, TemplateMaster> templateMap, String payload, Map<String, String> headers) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
-			dltService.logDlt(payload, new HashMap<>(), "No templates available");
+			dltService.logDlt(payload, headers, "No templates available");
 			return;
 		}
 
 		switch (value.toUpperCase()) {
 		case "SMS":
-			processSingle(templateMap.get("SMS"), "SMS", payload);
+			processSingle(templateMap.get("SMS"), "SMS", payload, headers);
 			break;
 		case "EMAIL":
-			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 			break;
 		case "BOTH":
-			processSingle(templateMap.get("SMS"), "SMS", payload);
-			processSingle(templateMap.get("EMAIL"), "EMAIL", payload);
+			processSingle(templateMap.get("SMS"), "SMS", payload, headers);
+			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 			break;
 		}
 	}
 
-	private NotificationRequest processSingle(TemplateMaster template, String type, String payload) {
+	private NotificationRequest processSingle(TemplateMaster template, String type, String payload, Map<String, String> headers) {
 		NotificationRequest request = new NotificationRequest();
 		if (template == null) {
-			dltService.logDlt(payload, new HashMap<>(), "No templates available");
+			dltService.logDlt(payload, headers, "No templates available");
 			return null;
 		}
 
@@ -209,14 +209,14 @@ public class NotificationService {
 			if ("EMAIL".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(email)) {
-					dltService.logDlt(payload, new HashMap<>(), "Missing email (to) for EMAIL type");
+					dltService.logDlt(payload, headers, "Missing email (to) for EMAIL type");
 					return null;
 				}
 
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
-						dltService.logDlt(payload, new HashMap<>(), "Missing email or mobileNumber for BOTH type");
+						dltService.logDlt(payload, headers, "Missing email or mobileNumber for BOTH type");
 						return null;
 					}
 				}
@@ -234,14 +234,14 @@ public class NotificationService {
 			if ("SMS".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(mobile)) {
-					dltService.logDlt(payload, new HashMap<>(), "Missing mobileNumber for SMS type");
+					dltService.logDlt(payload, headers, "Missing mobileNumber for SMS type");
 					return null;
 				}
 
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
-						dltService.logDlt(payload, new HashMap<>(), "Missing email or mobileNumber for BOTH type");
+						dltService.logDlt(payload, headers, "Missing email or mobileNumber for BOTH type");
 						return null;
 					}
 				}
@@ -264,7 +264,7 @@ public class NotificationService {
 				String value = findValue(payloadJson, key);
 
 				if (isNullOrEmpty(value)) {
-					dltService.logDlt(payload, new HashMap<>(), "Missing field " + key);
+					dltService.logDlt(payload, headers, "Missing field " + key);
 					return null;
 				}
 
@@ -278,7 +278,7 @@ public class NotificationService {
 
 		} catch (Exception e) {
 			String errorMessage = "Error processing template: " + e.getMessage();
-			dltService.logDlt(payload, new HashMap<>(), errorMessage);
+			dltService.logDlt(payload, headers, errorMessage);
 			return null;
 		}
 	}
