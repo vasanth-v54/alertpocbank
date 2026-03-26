@@ -1,11 +1,10 @@
+
 CREATE TABLE template_master (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-
-    message_type VARCHAR(50) NOT NULL COMMENT 'EMAIL / SMS / PUSH etc',
-
+	message_type VARCHAR(50) NOT NULL COMMENT 'EMAIL / SMS / PUSH etc',
     template_identifiers_ref JSON NOT NULL COMMENT 'Reference to routing key config identifiers',
-
-    template_parameters JSON NOT NULL COMMENT 'Template dynamic parameters',
+	template_id varchar(255),
+    template_body JSON NOT NULL COMMENT 'Template dynamic parameters',
 
     is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Active flag',
 
@@ -15,13 +14,15 @@ CREATE TABLE template_master (
     update_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by VARCHAR(100) DEFAULT NULL
 );
+COMMIT;
 
--- EMAIL
+-- Customer Created
 
 INSERT INTO template_master (
     message_type,
     template_identifiers_ref,
-    template_parameters,
+    template_id,
+    template_body,
     is_active,
     created_by,
     updated_by
@@ -35,11 +36,11 @@ INSERT INTO template_master (
         'legalCompanyCode','RB',
         'application','CRM.DIGI.CUSTOMER,CUSTOMER-CREATION-SUCCESS'
     ),
+	'TPL_EML_CUSTOMER_CREATED',
     JSON_OBJECT(
         'from','noreply@eastwestbanker.com',
         'to','cnlagahit@eastwestbanker.com',
         'subject','Instapay Fund Transfer',
-        'body','test 123',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('customer_name', 'applicationcustomerid', 'timestamp'),
         'cc','johndoe@email.com',
@@ -50,10 +51,50 @@ INSERT INTO template_master (
     'SYSTEM'
 );
 
+
+
 INSERT INTO template_master (
     message_type,
     template_identifiers_ref,
-    template_parameters,
+    template_id,
+    template_body,
+    is_active,
+    created_by,
+    updated_by
+) VALUES (
+    'SMS',
+    JSON_OBJECT(
+        'alertType','CUSTOMER_CREATED',
+        'eventType','CustomerEvents-CustomerCreated_CU_ACTIVITY_EVENT',
+        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
+        'messageType','SMS',
+        'legalCompanyCode','RB',
+        'application','CRM.DIGI.CUSTOMER,CUSTOMER-CREATION-SUCCESS'
+    ),'TPL_SMS_CUSTOMER_CREATED',
+    JSON_OBJECT(
+        'from','EASTWEST',
+        'mobileNumber','',
+        'message','123',
+        'template','DEFAULT',
+        'templateParams', JSON_ARRAY('customer_name', 'applicationcustomerid', 'timestamp'),
+        'notificationType','',
+        'referenceId','',
+        'callbackUrl','www.eastwestbanker.com'
+    ),
+    TRUE,
+    'SYSTEM',
+    'SYSTEM'
+);
+
+
+
+-- LOAN_DISBURSEMENT_SUCCESSFUL
+
+INSERT INTO template_master (
+    message_type,
+    template_identifiers_ref,
+    template_id,
+    template_body,
     is_active,
     created_by,
     updated_by
@@ -66,12 +107,11 @@ INSERT INTO template_master (
         'messageType','EMAIL',
         'legalCompanyCode','RB',
         'application','LENDING.DIGI.LOANS,LENDING-DISBURSEMENT-SUCCESS'
-    ),
+    ),'TPL_EML_LOAN_DISBURSEMENT_SUCCESSFUL',
     JSON_OBJECT(
         'from','noreply@eastwestbanker.com',
         'to','cnlagahit@eastwestbanker.com',
         'subject','Instapay Fund Transfer',
-        'body','test 123',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('amount', 'DisbursementAccount', 'timestamp', 'ParentReference'),
         'cc','johndoe@email.com',
@@ -85,7 +125,43 @@ INSERT INTO template_master (
 INSERT INTO template_master (
     message_type,
     template_identifiers_ref,
-    template_parameters,
+    template_id,
+    template_body,
+    is_active,
+    created_by,
+    updated_by
+) VALUES (
+    'SMS',
+    JSON_OBJECT(
+        'alertType','LOAN_DISBURSEMENT_SUCCESSFUL',
+        'eventType','ArrangementEvents-LoanDisbursementSuccessful_AA_ACTIVITY_EVENT',
+        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
+        'messageType','SMS',
+        'legalCompanyCode','RB',
+        'application','LENDING.DIGI.LOANS,LENDING-DISBURSEMENT-SUCCESS'
+    ),'TPL_SMS_LOAN_DISBURSEMENT_SUCCESSFUL',
+    JSON_OBJECT(
+        'from','EASTWEST',
+        'mobileNumber','',
+        'message','123',
+        'template','DEFAULT',
+        'templateParams', JSON_ARRAY('amount', 'DisbursementAccount', 'timestamp', 'ParentReference'),
+        'notificationType','',
+        'referenceId','',
+        'callbackUrl','www.eastwestbanker.com'
+    ),
+    TRUE,
+    'SYSTEM',
+    'SYSTEM'
+);
+
+--LOAN_PAST_DUE_REMINDER
+
+INSERT INTO template_master (
+    message_type,
+    template_identifiers_ref,
+    template_id,
+    template_body,
     is_active,
     created_by,
     updated_by
@@ -98,12 +174,11 @@ INSERT INTO template_master (
         'messageType','EMAIL',
         'legalCompanyCode','RB',
         'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
-    ),
+    ),'TPL_EML_LOAN_PAST_DUE_REMINDER',
     JSON_OBJECT(
         'from','noreply@eastwestbanker.com',
         'to','cnlagahit@eastwestbanker.com',
         'subject','Instapay Fund Transfer',
-        'body','test 123',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('ImmediateParentReference', 'PastDueDays', 'OverdueAmount', 'grace_date', 'ParentReference', 'companyId'),
         'cc','johndoe@email.com',
@@ -117,7 +192,43 @@ INSERT INTO template_master (
 INSERT INTO template_master (
     message_type,
     template_identifiers_ref,
-    template_parameters,
+    template_id,
+    template_body,
+    is_active,
+    created_by,
+    updated_by
+) VALUES (
+    'SMS',
+    JSON_OBJECT(
+        'alertType','LOAN_PAST_DUE_REMINDER',
+        'eventType','ArrangementEvents-LoanPastDueReminder_AA_ACTIVITY_EVENT',
+        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
+        'messageType','EMAIL',
+        'legalCompanyCode','RB',
+        'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
+    ),'TPL_SMS_LOAN_PAST_DUE_REMINDER',
+    JSON_OBJECT(
+        'from','EASTWEST',
+        'mobileNumber','',
+        'message','123',
+        'template','DEFAULT',
+        'templateParams', JSON_ARRAY('ImmediateParentReference', 'PastDueDays', 'OverdueAmount', 'grace_date', 'ParentReference', 'companyId'),
+        'notificationType','',
+        'referenceId','',
+        'callbackUrl','www.eastwestbanker.com'
+    ),
+    TRUE,
+    'SYSTEM',
+    'SYSTEM'
+);
+
+-- FUND_TRANSFER_SUCCESSFUL
+
+INSERT INTO template_master (
+    message_type,
+    template_identifiers_ref,
+    template_id,
+    template_body,
     is_active,
     created_by,
     updated_by
@@ -130,12 +241,11 @@ INSERT INTO template_master (
         'messageType','EMAIL',
         'legalCompanyCode','RB',
         'application','TPH.DIGI.PAYMENTS,PAYMENTS-FUND-TRANSFER-SUCCESS'
-    ),
+    ),'TPL_EML_FUND_TRANSFER_SUCCESSFUL',
     JSON_OBJECT(
         'from','noreply@eastwestbanker.com',
         'to','cnlagahit@eastwestbanker.com',
         'subject','Instapay Fund Transfer',
-        'body','test 123',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('amount', 'SenderAccount', 'ReceiverAccount', 'timestamp', 'ReferenceNumber'),
         'cc','johndoe@email.com',
@@ -147,142 +257,11 @@ INSERT INTO template_master (
 );
 
 
--- SMS
 INSERT INTO template_master (
     message_type,
     template_identifiers_ref,
-    template_parameters,
-    is_active,
-    created_by,
-    updated_by
-) VALUES (
-    'SMS',
-    JSON_OBJECT(
-        'alertType','Account Inactivity(60 Days) - ATM Pensioner',
-        'eventType','ewbIntegrationProject-AcInactivePreNoticeATMPensioner_AA_ACTIVITY_EVENT',
-        'originatingSource','',
-        'messageType','SMS',
-        'legalCompanyCode','RB',
-        'application','Accounts'
-    ),
-    JSON_OBJECT(
-        'from','EASTWEST',
-        'mobileNumber','',
-        'message','123',
-        'template','DEFAULT',
-        'templateParams', JSON_ARRAY('param1','param2'),
-        'notificationType','',
-        'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
-    ),
-    TRUE,
-    'SYSTEM',
-    'SYSTEM'
-);
-
-INSERT INTO template_master (
-    message_type,
-    template_identifiers_ref,
-    template_parameters,
-    is_active,
-    created_by,
-    updated_by
-) VALUES (
-    'SMS',
-    JSON_OBJECT(
-        'alertType','CUSTOMER_CREATED',
-        'eventType','CustomerEvents-CustomerCreated_CU_ACTIVITY_EVENT',
-        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
-        'messageType','EMAIL',
-        'legalCompanyCode','RB',
-        'application','CRM.DIGI.CUSTOMER,CUSTOMER-CREATION-SUCCESS'
-    ),
-    JSON_OBJECT(
-        'from','EASTWEST',
-        'mobileNumber','',
-        'message','123',
-        'template','DEFAULT',
-        'templateParams', JSON_ARRAY('customer_name', 'applicationcustomerid', 'timestamp'),
-        'notificationType','',
-        'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
-    ),
-    TRUE,
-    'SYSTEM',
-    'SYSTEM'
-);
-
-
-INSERT INTO template_master (
-    message_type,
-    template_identifiers_ref,
-    template_parameters,
-    is_active,
-    created_by,
-    updated_by
-) VALUES (
-    'SMS',
-    JSON_OBJECT(
-        'alertType','LOAN_DISBURSEMENT_SUCCESSFUL',
-        'eventType','ArrangementEvents-LoanDisbursementSuccessful_AA_ACTIVITY_EVENT',
-        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
-        'messageType','EMAIL',
-        'legalCompanyCode','RB',
-        'application','LENDING.DIGI.LOANS,LENDING-DISBURSEMENT-SUCCESS'
-    ),
-    JSON_OBJECT(
-        'from','EASTWEST',
-        'mobileNumber','',
-        'message','123',
-        'template','DEFAULT',
-        'templateParams', JSON_ARRAY('amount', 'DisbursementAccount', 'timestamp', 'ParentReference'),
-        'notificationType','',
-        'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
-    ),
-    TRUE,
-    'SYSTEM',
-    'SYSTEM'
-);
-
-
-INSERT INTO template_master (
-    message_type,
-    template_identifiers_ref,
-    template_parameters,
-    is_active,
-    created_by,
-    updated_by
-) VALUES (
-    'SMS',
-    JSON_OBJECT(
-        'alertType','LOAN_PAST_DUE_REMINDER',
-        'eventType','ArrangementEvents-LoanPastDueReminder_AA_ACTIVITY_EVENT',
-        'originatingSource','https://temenos.com/microservice/cloudevents/POCBank',
-        'messageType','EMAIL',
-        'legalCompanyCode','RB',
-        'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
-    ),
-    JSON_OBJECT(
-        'from','EASTWEST',
-        'mobileNumber','',
-        'message','123',
-        'template','DEFAULT',
-        'templateParams', JSON_ARRAY('ImmediateParentReference', 'PastDueDays', 'OverdueAmount', 'grace_date', 'ParentReference', 'companyId'),
-        'notificationType','',
-        'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
-    ),
-    TRUE,
-    'SYSTEM',
-    'SYSTEM'
-);
-
-
-INSERT INTO template_master (
-    message_type,
-    template_identifiers_ref,
-    template_parameters,
+    template_id,
+    template_body,
     is_active,
     created_by,
     updated_by
@@ -295,7 +274,7 @@ INSERT INTO template_master (
         'messageType','EMAIL',
         'legalCompanyCode','RB',
         'application','TPH.DIGI.PAYMENTS,PAYMENTS-FUND-TRANSFER-SUCCESS'
-    ),
+    ),'TPL_SMS_FUND_TRANSFER_SUCCESSFUL',
     JSON_OBJECT(
         'from','EASTWEST',
         'mobileNumber','',

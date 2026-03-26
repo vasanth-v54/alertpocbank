@@ -199,7 +199,7 @@ public class NotificationService {
 		}
 
 		try {
-			JsonNode templateJson = objectMapper.readTree(template.getTemplateParameters());
+			JsonNode templateJson = objectMapper.readTree(template.getTemplateBody());
 			JsonNode payloadJson = objectMapper.readTree(payload);
 
 			String email = findValue(payloadJson, "to");
@@ -226,8 +226,7 @@ public class NotificationService {
 				emailRequest.setCc(templateJson.path("cc").asText());
 				emailRequest.setBcc(templateJson.path("bcc").asText());
 				emailRequest.setSubject(templateJson.path("subject").asText());
-				emailRequest.setBody(templateJson.path("body").asText());
-				emailRequest.setTemplate(templateJson.path("template").asText());
+				emailRequest.setTemplate(template.getTemplateid());
 				emailRequest.setTo(email);
 				request.setEmail(emailRequest);
 			}
@@ -250,10 +249,10 @@ public class NotificationService {
 
 				sms.setFrom(templateJson.path("from").asText());
 				sms.setMessage(templateJson.path("message").asText());
-				sms.setTemplate(templateJson.path("template").asText());
+				sms.setTemplate(template.getTemplateid());
 				sms.setCallbackUrl(templateJson.path("callbackUrl").asText());
 				sms.setReferenceId(templateJson.path("referenceId").asText());
-				sms.setNotificationType(templateJson.path("notificationType").asText());
+				sms.setNotificationType(type);
 				sms.setMobileNumber(mobile);
 				request.setSms(sms);
 			}

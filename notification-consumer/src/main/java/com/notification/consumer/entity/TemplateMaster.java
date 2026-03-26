@@ -20,9 +20,12 @@ public class TemplateMaster {
 	private String templateIdentifiersRef;
 
 	@Column(columnDefinition = "json")
-	private String templateParameters;
+	private String templateBody;
 
 	private Boolean isActive;
+	
+	@Column(name = "template_id")
+	private String templateid;
 
 	private LocalDateTime createDate;
 	private String createdBy;
@@ -50,12 +53,7 @@ public class TemplateMaster {
 	public void setTemplateIdentifiersRef(String templateIdentifiersRef) {
 		this.templateIdentifiersRef = templateIdentifiersRef;
 	}
-	public String getTemplateParameters() {
-		return templateParameters;
-	}
-	public void setTemplateParameters(String templateParameters) {
-		this.templateParameters = templateParameters;
-	}
+	
 	public Boolean getIsActive() {
 		return isActive;
 	}
@@ -93,10 +91,12 @@ public class TemplateMaster {
 		builder.append(id);
 		builder.append(", templateIdentifiersRef=");
 		builder.append(templateIdentifiersRef);
-		builder.append(", templateParameters=");
-		builder.append(templateParameters);
+		builder.append(", templateBody=");
+		builder.append(templateBody);
 		builder.append(", isActive=");
 		builder.append(isActive);
+		builder.append(", templateid=");
+		builder.append(templateid);
 		builder.append(", createDate=");
 		builder.append(createDate);
 		builder.append(", createdBy=");
@@ -105,8 +105,22 @@ public class TemplateMaster {
 		builder.append(updateDate);
 		builder.append(", updatedBy=");
 		builder.append(updatedBy);
+		builder.append(", messageType=");
+		builder.append(messageType);
 		builder.append("]");
 		return builder.toString();
+	}
+	public String getTemplateBody() {
+		return templateBody;
+	}
+	public void setTemplateBody(String templateBody) {
+		this.templateBody = templateBody;
+	}
+	public String getTemplateid() {
+		return templateid;
+	}
+	public void setTemplateid(String templateid) {
+		this.templateid = templateid;
 	}
 	
 	

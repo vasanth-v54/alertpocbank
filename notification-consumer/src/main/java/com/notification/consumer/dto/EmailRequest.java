@@ -10,7 +10,6 @@ public class EmailRequest {
     private String cc;
     private String bcc;
     private String subject;
-    private String body;
     private String template;
 	public String getFrom() {
 		return from;
@@ -42,12 +41,7 @@ public class EmailRequest {
 	public void setSubject(String subject) {
 		this.subject = subject;
 	}
-	public String getBody() {
-		return body;
-	}
-	public void setBody(String body) {
-		this.body = body;
-	}
+	
 	public String getTemplate() {
 		return template;
 	}
@@ -67,8 +61,6 @@ public class EmailRequest {
 		builder.append(bcc);
 		builder.append(", subject=");
 		builder.append(subject);
-		builder.append(", body=");
-		builder.append(body);
 		builder.append(", template=");
 		builder.append(template);
 		builder.append("]");
