@@ -1,17 +1,25 @@
 package com.notification.consumer.service;
 
-import java.net.Authenticator.RequestorType;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.*;
-import com.notification.consumer.entity.*;
-import com.notification.consumer.dlt.*;
-import com.notification.consumer.dto.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notification.consumer.dlt.DltService;
+import com.notification.consumer.dto.EmailRequest;
+import com.notification.consumer.dto.NotificationRequest;
+import com.notification.consumer.dto.SmsRequest;
+import com.notification.consumer.entity.RoutingKeyConfig;
+import com.notification.consumer.entity.TemplateMaster;
 import com.notification.consumer.logger.VerticalLogger;
 import com.notification.consumer.util.JsonSearchUtil;
 
@@ -204,7 +212,7 @@ public class NotificationService {
 					dltService.logDlt(payload, new HashMap<>(), "Missing email (to) for EMAIL type");
 					return null;
 				}
-				
+
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
@@ -230,7 +238,7 @@ public class NotificationService {
 					dltService.logDlt(payload, new HashMap<>(), "Missing mobileNumber for SMS type");
 					return null;
 				}
-				
+
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
@@ -250,8 +258,6 @@ public class NotificationService {
 				request.setSms(sms);
 			}
 
-			
-
 			Map<String, String> resolvedParams = new HashMap<>();
 
 			for (JsonNode param : templateJson.path("templateParams")) {
@@ -266,7 +272,6 @@ public class NotificationService {
 				resolvedParams.put(key, value);
 			}
 
-			
 			request.setType(type);
 			request.setTemplateParams(resolvedParams);
 			log.info("Final Notification Request: " + request);
@@ -279,23 +284,45 @@ public class NotificationService {
 		}
 	}
 
+	private static final Set<String> MASK_KEYS = new HashSet<>(Arrays.asList("disbursementaccount",
+			"immediateparentreference", "applicationcustomerid", "receiveraccount", "senderaccount"));
+
 	private String findValue(JsonNode node, String key) {
 
 		if (node == null)
 			return null;
 
-		if (node.has(key))
-			return node.get(key).asText();
-
+		// ✅ Case-insensitive key match
 		if (node.isObject()) {
-			Iterator<Map.Entry<String, JsonNode>> it = node.fields();
-			while (it.hasNext()) {
-				String val = findValue(it.next().getValue(), key);
+			Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+
+			while (fields.hasNext()) {
+				Map.Entry<String, JsonNode> entry = fields.next();
+
+				String currentKey = entry.getKey();
+				JsonNode valueNode = entry.getValue();
+
+				// ✅ Match key ignoring case
+				if (currentKey.equalsIgnoreCase(key)) {
+
+					String value = valueNode.isNull() ? null : valueNode.asText();
+
+					// ✅ Apply masking if required
+					if (value != null && MASK_KEYS.contains(currentKey.toLowerCase())) {
+						return maskValue(value);
+					}
+
+					return value;
+				}
+
+				// Recurse
+				String val = findValue(valueNode, key);
 				if (val != null)
 					return val;
 			}
 		}
 
+		// ✅ Array handling
 		if (node.isArray()) {
 			for (JsonNode child : node) {
 				String val = findValue(child, key);
@@ -305,5 +332,17 @@ public class NotificationService {
 		}
 
 		return null;
+	}
+
+	private String maskValue(String value) {
+
+		if (value.length() <= 4) {
+			return value; // nothing to mask
+		}
+
+		int maskLength = value.length() - 4;
+		String maskedPart = "*".repeat(maskLength);
+
+		return maskedPart + value.substring(maskLength);
 	}
 }
