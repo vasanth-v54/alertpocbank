@@ -115,20 +115,26 @@ public class NotificationService {
 			if (status && (!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
 					|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
 
-				List<RoutingKeyConfig> configs = routingService.findMatchingConfigs(payload);
+				List<RoutingKeyConfig> matchedConfigs = routingService.findMatchingConfigs(payload);
 
-				if (configs.isEmpty()) {
+				if (matchedConfigs.isEmpty()) {
 					String error = "Routing Key Configuration missing";
 					dltService.logDlt(payload, headers, error);
 					vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 					return;
 				}
-				log.info("Result Config: " + configs);
+				log.info("Result Config: " + matchedConfigs);
 
 				vlog.stageEnd(4, "ROUTING CONFIG LOOKUP", "SUCCESS", eventId);
 
 				// ================= STAGE 5 =================
 				vlog.stageStart(5, "TEMPLATE LOOKUP", eventId);
+				
+				List<RoutingKeyConfig> configs =
+				        filterByMessageType(matchedConfigs, messageType);
+
+				log.info("Filtered Configs: {}", configs);
+				
 				for (RoutingKeyConfig config : configs) {
 
 					Map<String, TemplateMaster> templates = templateService
@@ -163,6 +169,34 @@ public class NotificationService {
 		}
 	}
 
+	private static final ObjectMapper mapper = new ObjectMapper();
+
+	public static List<RoutingKeyConfig> filterByMessageType(List<RoutingKeyConfig> configs, String inputType) {
+
+		if (inputType == null)
+			return configs;
+
+		String type = inputType.toUpperCase();
+
+		// ✅ BOTH → no filtering
+		if ("BOTH".equals(type)) {
+			return configs;
+		}
+
+		return configs.stream().filter(config -> {
+			try {
+				JsonNode node = mapper.readTree(config.getTemplateIdentifiers());
+
+				String messageType = node.path("messageType").asText("");
+
+				return messageType.equalsIgnoreCase(type);
+
+			} catch (Exception e) {
+				return false;
+			}
+		}).collect(Collectors.toList());
+	}
+
 	public String extractCustomFieldDetails(String payload) throws Exception {
 		JsonNode rootNode = objectMapper.readTree(payload);
 		JsonNode customFieldDetails = rootNode.path("payload").path("customFieldDetails");
@@ -177,32 +211,28 @@ public class NotificationService {
 			Map<String, String> headers) {
 
 		if (value == null || templateMap == null || templateMap.isEmpty()) {
-			dltService.logDlt(payload, headers, "No templates available");
+			dltService.logDlt(payload, headers, "processTemplates No templates available");
 			return;
 		}
 
-		switch (value.toUpperCase()) {
-		case "SMS":
+		log.info("Result Templates: " + templateMap + "value="+value);
+		if (value.toUpperCase().equals("SMS")) {
 			processSingle(templateMap.get("SMS"), "SMS", payload, headers);
-			break;
-		case "EMAIL":
+		} else if (value.toUpperCase().equals("EMAIL")) {
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
-			break;
-		case "BOTH":
+		} else if (value.toUpperCase().equals("BOTH")) {
 			processSingle(templateMap.get("SMS"), "SMS", payload, headers);
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
-			break;
+		} else {
+			log.info("Invalid Message Type");
 		}
+
 	}
 
 	private NotificationRequest processSingle(TemplateMaster template, String type, String payload,
 			Map<String, String> headers) {
 		NotificationRequest request = new NotificationRequest();
-		if (template == null) {
-			dltService.logDlt(payload, headers, "No templates available");
-			return null;
-		}
-
+		
 		try {
 			JsonNode templateJson = objectMapper.readTree(template.getTemplateBody());
 			JsonNode payloadJson = objectMapper.readTree(payload);
@@ -282,8 +312,9 @@ public class NotificationService {
 			return request;
 
 		} catch (Exception e) {
-			String errorMessage = "Error processing template: " + e.getMessage();
-			dltService.logDlt(payload, headers, errorMessage);
+//			log.info("Exception: " +  e);
+//			String errorMessage = "Error processing template: " + e.getMessage();
+//			dltService.logDlt(payload, headers, errorMessage);
 			return null;
 		}
 	}
