@@ -63,6 +63,18 @@ public class DynamicKafkaConsumerManager {
                         Map<String, String> headers = extractHeaders(record);
                         String eventId = headers.getOrDefault("event-id", "N/A");
 
+                        // ================= STAGE 1 =================
+                        vlog.stageStart(1, "SEED SAMPLE PAYLOAD", eventId);
+                        vlog.field("TOPIC",         record.topic());
+                        vlog.field("PARTITION",     String.valueOf(record.partition()));
+                        vlog.field("OFFSET",        String.valueOf(record.offset()));
+                        vlog.field("EVENT_ID",      eventId);
+                        vlog.field("EVENT_TYPE",    headers.getOrDefault("event-type", "N/A"));
+                        vlog.field("MESSAGE_TYPE",  headers.getOrDefault("MessageType", "N/A"));
+                        vlog.field("STATUS",        headers.getOrDefault("status", "N/A"));
+                        vlog.section("RAW PAYLOAD RECIEVED");
+                        vlog.stageEnd(1, "SEED SAMPLE PAYLOAD", "SUCCESS", eventId);
+
                         // Stage 3 wraps header validation + duplicate check
                         vlog.stageStart(3, "VALIDATIONS & DUPLICATE CHECK", eventId);
 

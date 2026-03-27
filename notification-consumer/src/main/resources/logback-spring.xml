@@ -36,14 +36,12 @@
  
     <!-- ═══════════════════════════════════════════════════════════════════════
          VERTICAL PIPELINE LOGGER — patched in, nothing above changed
-         Writes to its own file: logs/pipeline.log
-         Format:  2026-03-16 10:23:45.101 | >>>STAGE 2 STARTED ...
-         additivity=false → these lines never bleed into app.log or CONSOLE
-    ════════════════════════════════════════════════════════════════════════ -->
+         Writes to its own file: logs/vertical.log
+         Format:  2026-03-16 10:23:45.101 | >>>STAGE 2 STARTED ...    ════════════════════════════════════════════════════════════════════════ -->
 <appender name="PIPELINE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
  
         <!-- Fixed active file -->
-<file>logs/pipeline.log</file>
+<file>logs/verticalLogger.log</file>
  
         <!-- Same hourly rolling strategy as your FILE appender -->
 <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">

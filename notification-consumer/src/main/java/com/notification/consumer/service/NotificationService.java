@@ -1,12 +1,6 @@
 package com.notification.consumer.service;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -56,8 +50,7 @@ public class NotificationService {
 			// ================= STAGE 2 =================
 			vlog.stageStart(2, "CONSUMER CORE", eventId);
 			vlog.field("EVENT_ID", eventId);
-			vlog.section("FULL PAYLOAD RECEIVED");
-			vlog.payload(payload);
+			vlog.section("PAYLOAD RECEIVED :: KEY PARAMETERS VALIDATED");
 
 			JsonNode root = mapper.readTree(payload);
 			String eventType = root.path("eventType").asText(null);
@@ -84,6 +77,9 @@ public class NotificationService {
 			if (!allowedSet.contains(messageType)) {
 				String error = "Message type is NOT allowed";
 				dltService.logDlt(payload, headers, error);
+				vlog.field("MESSAGE_TYPE",      messageType);
+				vlog.field("ERROR_MESSAGE",     error);
+				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
 				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 				return;
 			}
@@ -120,15 +116,28 @@ public class NotificationService {
 				if (matchedConfigs.isEmpty()) {
 					String error = "Routing Key Configuration missing";
 					dltService.logDlt(payload, headers, error);
+					vlog.field("ERROR_MESSAGE", error);
 					vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 					return;
 				}
 				log.info("Result Config: " + matchedConfigs);
-
+				vlog.field("ALLOWED_CONSUMER_CHECK", "PASSED");
+				vlog.field("FIELD_PRESENCE_CHECK",   "PASSED");
+				vlog.field("MESSAGE_TYPE",           messageType);
+				vlog.field("EVENT_TYPE",             eventType);
+				vlog.field("ALERT_TYPE",             alertType);
+				vlog.field("ROUTING_CONFIGS_FOUND",  String.valueOf(matchedConfigs.size()));
 				vlog.stageEnd(4, "ROUTING CONFIG LOOKUP", "SUCCESS", eventId);
 
 				// ================= STAGE 5 =================
 				vlog.stageStart(5, "TEMPLATE LOOKUP", eventId);
+				vlog.field("MESSAGE_TYPE",           messageType);
+				vlog.field("EVENT_TYPE",             eventType);
+				vlog.field("ALERT_TYPE",             alertType);
+				vlog.field("TEMPLATE_IDENTIFIERS",  matchedConfigs.stream()
+						.findFirst()
+						.map(RoutingKeyConfig::getTemplateIdentifiers)
+						.orElse(null));
 				
 				List<RoutingKeyConfig> configs =
 				        filterByMessageType(matchedConfigs, messageType);
@@ -143,23 +152,32 @@ public class NotificationService {
 					if (templates == null || templates.isEmpty()) {
 						String error = "Template Configuration missing";
 						dltService.logDlt(payload, headers, error);
+						vlog.field("ROUTING_CONFIG_ID", config.getId() != null ? config.getId().toString() : "N/A");
+						vlog.field("ERROR_MESSAGE",     error);
+						vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
 						vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 						return;
 					}
+					vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
 					log.info("Result Templates: " + templates);
 					vlog.stageEnd(5, "TEMPLATE LOOKUP", "SUCCESS", eventId);
-
-					// ================= STAGE 6 =================
-					vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
-
 					processTemplates(messageType, templates, payload, headers);
-
-					vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 				}
+				// ================= STAGE 6 =================
+				vlog.stageStart(6, "PROCESS TEMPLATE", eventId);
+				vlog.field("MESSAGE_TYPE",           messageType);
+				vlog.field("EVENT_TYPE",             eventType);
+				vlog.field("ALERT_TYPE",             alertType);
+				vlog.field("TEMPLATE",             templateService.findTemplates(matchedConfigs.get(0).getTemplateIdentifiers(), payload).toString());
+
+
+				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 
 			} else {
 				String error = "Invalid input " + precheck;
 				dltService.logDlt(payload, headers, error);
+				vlog.field("ERROR_MESSAGE",     error);
+				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
 				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
 			}
 
@@ -178,7 +196,7 @@ public class NotificationService {
 
 		String type = inputType.toUpperCase();
 
-		// ✅ BOTH → no filtering
+		//BOTH → no filtering
 		if ("BOTH".equals(type)) {
 			return configs;
 		}
@@ -221,6 +239,8 @@ public class NotificationService {
 		} else if (value.toUpperCase().equals("EMAIL")) {
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 		} else if (value.toUpperCase().equals("BOTH")) {
+			vlog.field("CHANNEL", "BOTH");
+			vlog.section("SMS + EMAIL — parallel execution");
 			processSingle(templateMap.get("SMS"), "SMS", payload, headers);
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 		} else {
@@ -232,7 +252,17 @@ public class NotificationService {
 	private NotificationRequest processSingle(TemplateMaster template, String type, String payload,
 			Map<String, String> headers) {
 		NotificationRequest request = new NotificationRequest();
-		
+		String eventId = headers != null ? headers.getOrDefault("event-id", "N/A") : "N/A";
+
+		if (template == null) {
+			String error = "No templates available — template object is null for " + type;
+			dltService.logDlt(payload, headers, error);
+			vlog.field("CHANNEL",           type);
+			vlog.field("ERROR_MESSAGE",     error);
+			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+			vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+			return null;
+		}
 		try {
 			JsonNode templateJson = objectMapper.readTree(template.getTemplateBody());
 			JsonNode payloadJson = objectMapper.readTree(payload);
@@ -240,11 +270,17 @@ public class NotificationService {
 			String email = findValue(payloadJson, "to");
 			String mobile = findValue(payloadJson, "mobileNumber");
 
-			// 🔥 Validation based on message type
+			//Validation based on message type
 			if ("EMAIL".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(email)) {
 					dltService.logDlt(payload, headers, "Missing email (to) for EMAIL type");
+					String error = "Missing email (to) for EMAIL type";
+					vlog.field("CHANNEL",           type);
+					vlog.field("EMAIL_TO",          "MISSING");
+					vlog.field("ERROR_MESSAGE",     error);
+					vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 					return null;
 				}
 
@@ -269,14 +305,27 @@ public class NotificationService {
 			if ("SMS".equalsIgnoreCase(type) || "BOTH".equalsIgnoreCase(type)) {
 
 				if (isNullOrEmpty(mobile)) {
-					dltService.logDlt(payload, headers, "Missing mobileNumber for SMS type");
+					String error = "Missing mobileNumber for SMS";
+					dltService.logDlt(payload, headers, error);
+					vlog.field("CHANNEL",           type);
+					vlog.field("MOBILE_NUMBER",     "MISSING");
+					vlog.field("ERROR_MESSAGE",     error);
+					vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 					return null;
 				}
 
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
-						dltService.logDlt(payload, headers, "Missing email or mobileNumber for BOTH type");
+						String error = "Missing email or mobileNumber for BOTH type";
+						dltService.logDlt(payload, headers, error);
+						vlog.field("CHANNEL",           type);
+						vlog.field("EMAIL_TO",          email  != null ? email  : "MISSING");
+						vlog.field("MOBILE_NUMBER",     mobile != null ? mobile : "MISSING");
+						vlog.field("ERROR_MESSAGE",     error);
+						vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+						vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 						return null;
 					}
 				}
@@ -299,7 +348,13 @@ public class NotificationService {
 				String value = findValue(payloadJson, key);
 
 				if (isNullOrEmpty(value)) {
-					dltService.logDlt(payload, headers, "Missing field " + key);
+					String error = "Missing template param: " + key;
+					dltService.logDlt(payload, headers, error);
+					vlog.field("CHANNEL",               type);
+					vlog.field("MISSING_TEMPLATE_PARAM", key);
+					vlog.field("ERROR_MESSAGE",         error);
+					vlog.field("EXECUTION_STOPPED",     "Stage 5 — " + error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 					return null;
 				}
 
@@ -309,12 +364,18 @@ public class NotificationService {
 			request.setType(type);
 			request.setTemplateParams(resolvedParams);
 			log.info("Final Notification Request: " + request);
+			vlog.section("NOTIFICATION REQUEST — READY TO DISPATCH");
+			vlog.field("FINAL_REQUEST_CAPTURED", request.toString());
 			return request;
 
 		} catch (Exception e) {
-//			log.info("Exception: " +  e);
-//			String errorMessage = "Error processing template: " + e.getMessage();
-//			dltService.logDlt(payload, headers, errorMessage);
+			String error = "Error processing template: " + e.getMessage();
+			log.error("Exception in processSingle: ", e);
+			dltService.logDlt(payload, headers, error);
+			vlog.field("CHANNEL",           type);
+			vlog.field("ERROR_MESSAGE",     error);
+			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+			vlog.stageError(5, "TEMPLATE LOOKUP", error, e, eventId);
 			return null;
 		}
 	}
@@ -327,7 +388,7 @@ public class NotificationService {
 		if (node == null)
 			return null;
 
-		// ✅ Case-insensitive key match
+		//Case-insensitive key match
 		if (node.isObject()) {
 			Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
 
@@ -337,12 +398,12 @@ public class NotificationService {
 				String currentKey = entry.getKey();
 				JsonNode valueNode = entry.getValue();
 
-				// ✅ Match key ignoring case
+				//Match key ignoring case
 				if (currentKey.equalsIgnoreCase(key)) {
 
 					String value = valueNode.isNull() ? null : valueNode.asText();
 
-					// ✅ Apply masking if required
+					//Apply masking if required
 					if (value != null && MASK_KEYS.contains(currentKey.toLowerCase())) {
 						return maskValue(value);
 					}
@@ -357,7 +418,7 @@ public class NotificationService {
 			}
 		}
 
-		// ✅ Array handling
+		//Array handling
 		if (node.isArray()) {
 			for (JsonNode child : node) {
 				String val = findValue(child, key);
