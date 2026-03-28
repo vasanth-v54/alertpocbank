@@ -179,11 +179,13 @@ public class NotificationService {
 				vlog.field("ERROR_MESSAGE",     error);
 				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
 				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
+				return;
 			}
 
 		} catch (Exception e) {
 			log.error("Exception", e);
 			vlog.stageError(2, "CONSUMER CORE", e.getMessage(), null, eventId);
+			dltService.logDlt(payload, headers, e.getMessage());
 		}
 	}
 
@@ -245,6 +247,7 @@ public class NotificationService {
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 		} else {
 			log.info("Invalid Message Type");
+			dltService.logDlt(payload, headers, "Invalid message type" + value)
 		}
 
 	}

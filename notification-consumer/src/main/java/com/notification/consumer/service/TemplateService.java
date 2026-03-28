@@ -16,10 +16,12 @@ import java.util.Map;
 public class TemplateService {
 
 	private final TemplateMasterRepository repository;
+/*
 	public TemplateService(TemplateMasterRepository repository) {
 		super();
 		this.repository = repository;
 	}
+*/
 
 	public Map<String, TemplateMaster> findTemplates(String config, String payload) {
 
