@@ -38,13 +38,13 @@ INSERT INTO template_master (
     ),
 	'TPL_EML_CUSTOMER_CREATED',
     JSON_OBJECT(
-        'from','noreply@eastwestbanker.com',
-        'to','cnlagahit@eastwestbanker.com',
+        'from','noreply@pocalertbanker.com',
+        'to','brian@pocalertbanker.com',
         'subject','Instapay Fund Transfer',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('customer_name', 'applicationcustomerid', 'timestamp'),
-        'cc','johndoe@email.com',
-        'bcc','johndoe@email.com'
+        'cc','emma.wilson@testmail.com',
+        'bcc','daniel.cohen@email.com'
     ),
     TRUE,
     'SYSTEM',
@@ -72,14 +72,14 @@ INSERT INTO template_master (
         'application','CRM.DIGI.CUSTOMER,CUSTOMER-CREATION-SUCCESS'
     ),'TPL_SMS_CUSTOMER_CREATED',
     JSON_OBJECT(
-        'from','EASTWEST',
+        'from','POCBANK',
         'mobileNumber','',
         'message','123',
         'template','DEFAULT',
         'templateParams', JSON_ARRAY('customer_name', 'applicationcustomerid', 'timestamp'),
         'notificationType','',
         'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
+        'callbackUrl','www.pocalertbanker.com'
     ),
     TRUE,
     'SYSTEM',
@@ -109,13 +109,13 @@ INSERT INTO template_master (
         'application','LENDING.DIGI.LOANS,LENDING-DISBURSEMENT-SUCCESS'
     ),'TPL_EML_LOAN_DISBURSEMENT_SUCCESSFUL',
     JSON_OBJECT(
-        'from','noreply@eastwestbanker.com',
-        'to','cnlagahit@eastwestbanker.com',
+        'from','noreply@pocalertbanker.com',
+        'to','liam.anderson@pocalertbanker.com',
         'subject','Instapay Fund Transfer',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('amount', 'DisbursementAccount', 'timestamp', 'ParentReference'),
-        'cc','johndoe@email.com',
-        'bcc','johndoe@email.com'
+        'cc','alan@email.com',
+        'bcc','noam.levi@mail.com'
     ),
     TRUE,
     'SYSTEM',
@@ -141,14 +141,14 @@ INSERT INTO template_master (
         'application','LENDING.DIGI.LOANS,LENDING-DISBURSEMENT-SUCCESS'
     ),'TPL_SMS_LOAN_DISBURSEMENT_SUCCESSFUL',
     JSON_OBJECT(
-        'from','EASTWEST',
+        'from','POCBANK',
         'mobileNumber','',
         'message','123',
         'template','DEFAULT',
         'templateParams', JSON_ARRAY('amount', 'DisbursementAccount', 'timestamp', 'ParentReference'),
         'notificationType','',
         'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
+        'callbackUrl','www.pocalertbanker.com'
     ),
     TRUE,
     'SYSTEM',
@@ -176,13 +176,13 @@ INSERT INTO template_master (
         'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
     ),'TPL_EML_LOAN_PAST_DUE_REMINDER',
     JSON_OBJECT(
-        'from','noreply@eastwestbanker.com',
-        'to','cnlagahit@eastwestbanker.com',
+        'from','olivia.martin@pocalertbanker.com',
+        'to','yael.shamir@pocalertbanker.com',
         'subject','Instapay Fund Transfer',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('ImmediateParentReference', 'PastDueDays', 'OverdueAmount', 'grace_date', 'ParentReference', 'companyId'),
-        'cc','johndoe@email.com',
-        'bcc','johndoe@email.com'
+        'cc','ethan.thomas@email.com',
+        'bcc','itay.bito@email.com'
     ),
     TRUE,
     'SYSTEM',
@@ -208,14 +208,14 @@ INSERT INTO template_master (
         'application','LENDING.DIGI.LOANS,LENDING-PASTDUE-REMINDER'
     ),'TPL_SMS_LOAN_PAST_DUE_REMINDER',
     JSON_OBJECT(
-        'from','EASTWEST',
+        'from','POCBANK',
         'mobileNumber','',
         'message','123',
         'template','DEFAULT',
         'templateParams', JSON_ARRAY('ImmediateParentReference', 'PastDueDays', 'OverdueAmount', 'grace_date', 'ParentReference', 'companyId'),
         'notificationType','',
         'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
+        'callbackUrl','www.pocalertbanker.com'
     ),
     TRUE,
     'SYSTEM',
@@ -243,13 +243,13 @@ INSERT INTO template_master (
         'application','TPH.DIGI.PAYMENTS,PAYMENTS-FUND-TRANSFER-SUCCESS'
     ),'TPL_EML_FUND_TRANSFER_SUCCESSFUL',
     JSON_OBJECT(
-        'from','noreply@eastwestbanker.com',
-        'to','cnlagahit@eastwestbanker.com',
+        'from','sophia.jackson@alertbanker.com',
+        'to','ronit.abramov@instapay.com',
         'subject','Instapay Fund Transfer',
         'template','EMAIL_VERIFICATION',
         'templateParams', JSON_ARRAY('amount', 'SenderAccount', 'ReceiverAccount', 'timestamp', 'ReferenceNumber'),
-        'cc','johndoe@email.com',
-        'bcc','johndoe@email.com'
+        'cc','ava.harris@email.com',
+        'bcc','etahn@email.com'
     ),
     TRUE,
     'SYSTEM',
@@ -276,14 +276,14 @@ INSERT INTO template_master (
         'application','TPH.DIGI.PAYMENTS,PAYMENTS-FUND-TRANSFER-SUCCESS'
     ),'TPL_SMS_FUND_TRANSFER_SUCCESSFUL',
     JSON_OBJECT(
-        'from','EASTWEST',
+        'from','POCBANK',
         'mobileNumber','',
         'message','123',
         'template','DEFAULT',
         'templateParams', JSON_ARRAY('amount', 'SenderAccount', 'ReceiverAccount', 'timestamp', 'ReferenceNumber'),
         'notificationType','',
         'referenceId','',
-        'callbackUrl','www.eastwestbanker.com'
+        'callbackUrl','www.pocalertbanker.com'
     ),
     TRUE,
     'SYSTEM',

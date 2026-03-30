@@ -247,7 +247,7 @@ public class NotificationService {
 			processSingle(templateMap.get("EMAIL"), "EMAIL", payload, headers);
 		} else {
 			log.info("Invalid Message Type");
-			dltService.logDlt(payload, headers, "Invalid message type" + value)
+			dltService.logDlt(payload, headers, "Invalid message type" + value);
 		}
 
 	}
