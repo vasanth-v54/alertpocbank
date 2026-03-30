@@ -256,16 +256,16 @@ public class NotificationService {
 			Map<String, String> headers) {
 		NotificationRequest request = new NotificationRequest();
 		String eventId = headers != null ? headers.getOrDefault("event-id", "N/A") : "N/A";
-
-		if (template == null) {
-			String error = "No templates available — template object is null for " + type;
-			dltService.logDlt(payload, headers, error);
-			vlog.field("CHANNEL",           type);
-			vlog.field("ERROR_MESSAGE",     error);
-			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
-			vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
-			return null;
-		}
+//
+//		if (template == null) {
+//			String error = "No templates available — template object is null for " + type;
+//			dltService.logDlt(payload, headers, error);
+//			vlog.field("CHANNEL",           type);
+//			vlog.field("ERROR_MESSAGE",     error);
+//			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+//			vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+//			return null;
+//		}
 		try {
 			JsonNode templateJson = objectMapper.readTree(template.getTemplateBody());
 			JsonNode payloadJson = objectMapper.readTree(payload);
@@ -373,13 +373,15 @@ public class NotificationService {
 
 		} catch (Exception e) {
 			String error = "Error processing template: " + e.getMessage();
-			log.error("Exception in processSingle: ", e);
-			dltService.logDlt(payload, headers, error);
-			vlog.field("CHANNEL",           type);
-			vlog.field("ERROR_MESSAGE",     error);
-			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
-			vlog.stageError(5, "TEMPLATE LOOKUP", error, e, eventId);
-			return null;
+			log.error("Exception in processSingle: ", error);
+//			dltService.logDlt(payload, headers, error);
+//			vlog.field("CHANNEL",           type);
+//			vlog.field("ERROR_MESSAGE",     error);
+//			vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+//			vlog.stageError(5, "TEMPLATE LOOKUP", error, e, eventId);
+			vlog.section("NOTIFICATION REQUEST — READY TO DISPATCH");
+			vlog.field("FINAL_REQUEST_CAPTURED", request.toString());
+			return request;
 		}
 	}
 
