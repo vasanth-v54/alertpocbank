@@ -76,6 +76,25 @@ public class EmailTemplate {
 	public void setDateUpdated(LocalDateTime dateUpdated) {
 		this.dateUpdated = dateUpdated;
 	}
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("EmailTemplate [id=");
+		builder.append(id);
+		builder.append(", templateName=");
+		builder.append(templateName);
+		builder.append(", templateBody=");
+		builder.append(templateBody);
+		builder.append(", isActive=");
+		builder.append(isActive);
+		builder.append(", dateCreated=");
+		builder.append(dateCreated);
+		builder.append(", dateUpdated=");
+		builder.append(dateUpdated);
+		builder.append("]");
+		return builder.toString();
+	}
     
     
 }

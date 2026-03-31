@@ -13,7 +13,7 @@ public class EmailTemplateService implements CommonTemplateService {
 
     private final EmailTemplateRepository repository;
 
-    @Override
+	@Override
     public String getTemplate(String templateName) {
         return repository.findByTemplateNameAndIsActiveTrue(templateName)
                 .map(EmailTemplate::getTemplateBody)

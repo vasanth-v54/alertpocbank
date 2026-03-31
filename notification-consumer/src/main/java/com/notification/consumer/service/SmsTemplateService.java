@@ -13,7 +13,7 @@ public class SmsTemplateService implements CommonTemplateService {
 
     private final SmsTemplateRepository repository;
 
-    @Override
+	@Override
     public String getTemplate(String templateName) {
         return repository.findByTemplateNameAndIsActiveTrue(templateName)
                 .map(SmsTemplate::getTemplateBody)

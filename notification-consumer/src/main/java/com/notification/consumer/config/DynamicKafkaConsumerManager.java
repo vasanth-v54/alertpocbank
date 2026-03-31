@@ -1,9 +1,8 @@
 package com.notification.consumer.config;
 
-import com.notification.consumer.logger.VerticalLogger;
-import com.notification.consumer.service.AppConfigService;
-import com.notification.consumer.service.NotificationService;
-import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -12,26 +11,28 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.MessageListener;
 
-import jakarta.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.Map;
+import com.notification.consumer.dlt.DuplicateCheckService;
+import com.notification.consumer.dlt.HeaderValidatorService;
+import com.notification.consumer.logger.VerticalLogger;
+import com.notification.consumer.service.NotificationService;
 
-import com.notification.consumer.dlt.*;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @RequiredArgsConstructor
 public class DynamicKafkaConsumerManager {
 
-    private final AppConfigService configService;
+
     private final NotificationService notificationService;
     private final HeaderValidatorService headerValidatorService;
     private final DuplicateCheckService duplicateCheckService;
     private final VerticalLogger vlog;
-
-    @PostConstruct
+    
+	@PostConstruct
     public void startConsumer() {
 
-        Integer consumerCount = configService.getInt("NO_OF_CONSUMER");
+        Integer consumerCount = 3;
 
         if (consumerCount == null || consumerCount <= 0) {
             consumerCount = 1;
