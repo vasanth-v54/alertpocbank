@@ -62,6 +62,11 @@ CREATE TABLE TM_TEMPLATE_AUDIT (
     changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     change_reason ENUM('CREATED', 'EDITED', 'DEACTIVATED') NOT NULL,
-
+-- Foreign Key Constraint
+    CONSTRAINT FK_AUDIT_DRAFT
+        FOREIGN KEY (draft_id)
+            REFERENCES template_masters(id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
 );
 COMMIT;
