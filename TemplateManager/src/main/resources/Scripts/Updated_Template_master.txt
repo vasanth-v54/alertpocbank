@@ -1,6 +1,5 @@
 CREATE TABLE template_master (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    template_id VARCHAR(36) NOT NULL,
     template_name VARCHAR(200) NOT NULL,
     messageType VARCHAR(20) NOT NULL,
     version VARCHAR(10) NOT NULL,
@@ -22,7 +21,6 @@ CREATE TABLE template_master (
 
 
 INSERT INTO template_master (
-    template_id,
     template_name,
     messageType,
     version,
@@ -38,8 +36,6 @@ INSERT INTO template_master (
     created_by,
     modified_by
 ) VALUES (
-
-    'Accounts_accountdeactivated',
     'SMS-Accounts_accountdeactivated',
     'SMS',
     '1',
