@@ -174,7 +174,7 @@ public class NotificationService {
 				vlog.stageEnd(6, "PROCESS TEMPLATE", "SUCCESS", eventId);
 
 			} else {
-				String error = "Invalid input " + precheck;
+				String error = "Header validation failed: AlertType is null or empty" ;
 				dltService.logDlt(payload, headers, error);
 				vlog.field("ERROR_MESSAGE",     error);
 				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
@@ -287,6 +287,17 @@ public class NotificationService {
 					return null;
 				}
 
+				if (!isValidEmail(email)) {
+					String error = "Invalid email format: " + email;
+					dltService.logDlt(payload, headers, error);
+					vlog.field("CHANNEL",           type);
+					vlog.field("EMAIL_TO",          "INVALID");
+					vlog.field("ERROR_MESSAGE",     error);
+					vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+					return null;
+				}
+
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
@@ -318,6 +329,17 @@ public class NotificationService {
 					return null;
 				}
 
+				if (!isValidMobile(mobile)) {
+					String error = "Invalid mobileNumber format: " + mobile + " (must be 10 digits)";
+					dltService.logDlt(payload, headers, error);
+					vlog.field("CHANNEL",           type);
+					vlog.field("MOBILE_NUMBER",          "INVALID");
+					vlog.field("ERROR_MESSAGE",     error);
+					vlog.field("EXECUTION_STOPPED", "Stage 5 — " + error);
+					vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
+					return null;
+				}
+
 				if ("BOTH".equalsIgnoreCase(type)) {
 
 					if (isNullOrEmpty(email) || isNullOrEmpty(mobile)) {
@@ -331,6 +353,18 @@ public class NotificationService {
 						vlog.stageError(5, "TEMPLATE LOOKUP", error, null, eventId);
 						return null;
 					}
+
+					//START
+					/*if ("BOTH".equalsIgnoreCase(type)) {
+						if (!isValidEmail(email) || !isValidMobile(mobile)) {
+							String error = "Invalid email or mobileNumber for BOTH type";
+							dltService.logDlt(payload, headers, error);
+							return null;
+						}
+					}*/
+
+
+					//END
 				}
 				SmsRequest sms = new SmsRequest();
 
@@ -445,5 +479,19 @@ public class NotificationService {
 		String maskedPart = "*".repeat(maskLength);
 
 		return maskedPart + value.substring(maskLength);
+	}
+
+	private boolean isValidEmail(String email) {
+		if (email == null) return false;
+
+		return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.com$");
+		//return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+	}
+
+	private boolean isValidMobile(String mobile) {
+		if (mobile == null) return false;
+
+		// Only digits and exactly 10 digits
+		return mobile.matches("^[0-9]{10}$");
 	}
 }
