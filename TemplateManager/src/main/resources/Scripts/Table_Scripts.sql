@@ -20,20 +20,24 @@ CREATE TABLE DXP_EMAIL_TEMPLATE (
 );
 
 CREATE TABLE template_master (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    template_id VARCHAR(36) NOT NULL,
-    template_name VARCHAR(200) NOT NULL,
-    channel VARCHAR(20) NOT NULL,
-    version VARCHAR(10) NOT NULL,
-    alert_config JSON NOT NULL,
-    notify_fields JSON NOT NULL,
-    index_template LONGTEXT NOT NULL,
-    template_params JSON NOT NULL,
-    is_active VARCHAR(20) NOT NULL,
-    created_by VARCHAR(100) NOT NULL,
-    updated_by VARCHAR(100) DEFAULT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+                                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                 template_id VARCHAR(36) NOT NULL,
+                                 template_name VARCHAR(200) NOT NULL,
+                                 message_type VARCHAR(20) NOT NULL,
+                                 version VARCHAR(10) NOT NULL,
+                                 alert_config JSON NOT NULL,
+                                 headers JSON NOT NULL,
+                                 raw_content JSON NOT NULL,
+                                 indexed_content JSON NOT NULL,
+                                 param_mapping JSON NOT NULL,
+                                 contentHash VARCHAR(255) DEFAULT NULL,
+                                 exceptionReason VARCHAR(500) DEFAULT NULL,
+                                 isDuplicateallowed BOOLEAN NOT NULL DEFAULT FALSE,
+                                 IS_ACTIVE TINYINT(1) NOT NULL DEFAULT 1,
+                                 created_by VARCHAR(100) NOT NULL,
+                                 modified_by VARCHAR(100) DEFAULT NULL,
+                                 created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                 modified_date DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
 
@@ -49,7 +53,7 @@ CREATE TABLE TM_TEMPLATE_AUDIT (
 
     version VARCHAR(10) NOT NULL,
 
-    channel ENUM('EMAIL', 'SMS', 'BOTH') NOT NULL,
+    mesaageType ENUM('EMAIL', 'SMS', 'BOTH') NOT NULL,
 
     indexed_content LONGTEXT NULL,      -- Frozen snapshot
 
