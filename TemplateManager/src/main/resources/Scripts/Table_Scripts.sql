@@ -41,7 +41,7 @@ CREATE TABLE TM_TEMPLATE_AUDIT (
 
     audit_id VARCHAR(36) PRIMARY KEY,   -- UUID
 
-    draft_id VARCHAR(36) NOT NULL,      -- FK to TM_DRAFT_WORK
+    draft_id BIGINT NOT NULL,      -- FK to TM_DRAFT_WORK
 
     template_id VARCHAR(36) NULL,       -- Snapshot at change time
 
