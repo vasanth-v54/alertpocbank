@@ -20,7 +20,7 @@ public class TemplateAuditController {
     }
 
     @GetMapping("/{id}/audit")
-    public List<TemplateAudit> getTemplateAudits(@PathVariable("id") String templateId) {
+    public List<TemplateAudit> getTemplateAudits(@PathVariable("id") Long templateId) {
         return service.getAuditsByTemplateId(templateId);
     }
 }

@@ -20,11 +20,8 @@ public class TemplateAudit {
     @Column(name = "audit_id")
     private String auditId;
 
-    @Column(name = "draft_id", nullable = false)
-    private Long draftId;
-
-    @Column(name = "template_id")
-    private String templateId;
+    @Column(name = "template_id", nullable = false)
+    private Long templateId;
 
     @Column(name = "template_name", nullable = false)
     private String templateName;
@@ -78,19 +75,11 @@ public class TemplateAudit {
         this.auditId = auditId;
     }
 
-    public Long getDraftId() {
-        return draftId;
-    }
-
-    public void setDraftId(Long draftId) {
-        this.draftId = draftId;
-    }
-
-    public String getTemplateId() {
+    public Long getTemplateId() {
         return templateId;
     }
 
-    public void setTemplateId(String templateId) {
+    public void setTemplateId(Long templateId) {
         this.templateId = templateId;
     }
 

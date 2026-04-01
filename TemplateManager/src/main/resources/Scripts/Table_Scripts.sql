@@ -39,34 +39,33 @@ CREATE TABLE template_master (
 
 CREATE TABLE TM_TEMPLATE_AUDIT (
 
-    audit_id VARCHAR(36) PRIMARY KEY,   -- UUID
+                                   audit_id VARCHAR(36) PRIMARY KEY,   -- UUID
 
-    draft_id BIGINT NOT NULL,      -- FK to TM_DRAFT_WORK
+                                   template_id BIGINT NOT NULL,        -- FK to template_master(id)
 
-    template_id VARCHAR(36) NULL,       -- Snapshot at change time
+                                   template_name VARCHAR(200) NOT NULL, -- for readability/logging
 
-    template_name VARCHAR(200) NOT NULL,
+                                   version VARCHAR(10) NOT NULL,
 
-    version VARCHAR(10) NOT NULL,
+                                   channel ENUM('EMAIL', 'SMS', 'BOTH') NOT NULL,
 
-    channel ENUM('EMAIL', 'SMS', 'BOTH') NOT NULL,
+                                   indexed_content LONGTEXT NULL,      -- snapshot of template content
 
-    indexed_content LONGTEXT NULL,      -- Frozen snapshot
+                                   param_mapping JSON NULL,            -- snapshot mapping
 
-    param_mapping JSON NULL,            -- Frozen snapshot
+                                   is_template_active ENUM('DRAFT', 'ACTIVE', 'INACTIVE') NOT NULL,
 
-    is_template_active ENUM('DRAFT', 'ACTIVE', 'INACTIVE') NOT NULL,
+                                   changed_by VARCHAR(100) NULL,
 
-    changed_by VARCHAR(100) NULL,
+                                   changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                   change_reason ENUM('CREATED', 'EDITED', 'DEACTIVATED') NOT NULL,
 
-    change_reason ENUM('CREATED', 'EDITED', 'DEACTIVATED') NOT NULL,
--- Foreign Key Constraint
-    CONSTRAINT FK_AUDIT_DRAFT
-        FOREIGN KEY (draft_id)
-            REFERENCES template_masters(id)
-            ON DELETE CASCADE
-            ON UPDATE CASCADE
+    -- ✅ Foreign Key Constraint
+                                   CONSTRAINT fk_template_id
+                                       FOREIGN KEY (template_id)
+                                           REFERENCES template_master(id)
+                                           ON DELETE CASCADE
+                                           ON UPDATE CASCADE
 );
 COMMIT;

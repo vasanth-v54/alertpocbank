@@ -15,7 +15,7 @@ public class TemplateAuditService {
         this.repository = repository;
     }
 
-    public List<TemplateAudit> getAuditsByTemplateId(String templateId) {
+    public List<TemplateAudit> getAuditsByTemplateId(Long templateId) {
         List<TemplateAudit> audits = repository.findByTemplateId(templateId);
         if (audits.isEmpty()) {
             throw new ResourceNotFoundException("No audit records found for template ID: " + templateId);

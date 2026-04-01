@@ -27,7 +27,7 @@ public class TemplateMaster {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "messageType", nullable = false)
-    private String messageType;
+    private Channel messageType;
 
     @Column(name = "version", nullable = false)
     private String version;
@@ -71,6 +71,10 @@ public class TemplateMaster {
     @Column(name = "modified_date")
     private LocalDateTime modifiedDate;
 
+    public enum Channel {
+        EMAIL, SMS, BOTH
+    }
+
 	public Long getId() {
 		return id;
 	}
@@ -95,11 +99,11 @@ public class TemplateMaster {
 		this.templateName = templateName;
 	}
 
-	public String getMessageType() {
+	public Channel getMessageType() {
 		return messageType;
 	}
 
-	public void setMessageType(String messageType) {
+	public void setMessageType(Channel messageType) {
 		this.messageType = messageType;
 	}
 
