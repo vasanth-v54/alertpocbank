@@ -82,6 +82,19 @@ public class NotificationService {
 				return;
 			}
 
+			if (isNullOrEmpty(alertType) && isNullOrEmpty(originatingSource)) {
+				String error = "Both alertType and originatingSource are null or empty";
+				dltService.logDlt(payload, headers, error);
+
+				vlog.field("ERROR_MESSAGE", error);
+				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
+
+				vlog.stageError(3, "CONSUMER CORE - PAYLOAD CONFIG CHECK", error, null, eventId);
+
+				return;
+			}
+
+
 			boolean status = false;
 			String precheck = null;
 			// Prechecks
@@ -160,7 +173,7 @@ public class NotificationService {
 				}
 				
 			} else {
-				String error = "Header validation failed: AlertType is null or empty" ;
+				String error = precheck != null ? precheck : "Mandatory fields missing";
 				dltService.logDlt(payload, headers, error);
 				vlog.field("ERROR_MESSAGE",     error);
 				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
