@@ -24,15 +24,6 @@ public class TemplateService {
        
     public TemplateResponseDTO getTemplateByTemplateName(String templateName) {
 
-/*        List<TemplateMaster> templates =
-                repository.findByTemplateIdAndIsActive(templateId ,"1");
-
-        if (templates == null || templates.isEmpty()) {
-            throw new RuntimeException("Template not found for templateId: " + templateId);
-        }
-
-        return mapToResponse(templates);*/
-
         List<TemplateMaster> templates =
                 repository.findByTemplateNameAndIsActive(templateName, "1");
 
@@ -47,7 +38,9 @@ public class TemplateService {
                 ))
                 .toList();
 
-        return mapToResponse(templates);
+        TemplateMaster latest = templates.get(0);
+        return mapToResponse(List.of(latest));
+        //return mapToResponse(templates);
     }
     
     // GET ALL TEMPLATES
@@ -59,7 +52,7 @@ public class TemplateService {
             throw new RuntimeException("No templates found");
         }
 
-        // GROUP BY templateId
+        // GROUP BY templateName
         Map<String, List<TemplateMaster>> groupedTemplates =
                 allTemplates.stream()
                         .collect(Collectors.groupingBy(TemplateMaster::getTemplateName));
@@ -67,7 +60,14 @@ public class TemplateService {
         List<TemplateResponseDTO> responseList = new ArrayList<>();
 
         for (Map.Entry<String, List<TemplateMaster>> entry : groupedTemplates.entrySet()) {
-            responseList.add(mapToResponse(entry.getValue()));
+//            responseList.add(mapToResponse(entry.getValue()));
+            TemplateMaster latest = entry.getValue().stream()
+                    .max(Comparator.comparing(t -> Integer.parseInt(t.getVersion())))
+                    .orElse(null);
+
+            if (latest != null) {
+                responseList.add(mapToResponse(List.of(latest)));
+            }
         }
 
         return responseList;
@@ -91,7 +91,7 @@ public class TemplateService {
 
             for (TemplateMaster entity : templates) {
 
-                    System.out.println("DEBUG entity: " + entity.getTemplateId()
+                    System.out.println("DEBUG entity: " + entity.getTemplateName()
                             + " | messageType=" + entity.getmessageType()
                             + " | rawContent=" + entity.getRawContent()
                             + " | headers=" + entity.getHeaders()
@@ -109,7 +109,7 @@ public class TemplateService {
 
                 // SET ROUTING CONFIG
                 if (routingConfig.getTemplateId() == null) {
-                    routingConfig.setTemplateId(entity.getTemplateId());
+                    routingConfig.setTemplateId(entity.getTemplateName());
                     routingConfig.setAlertId((String) alertConfig.get("alertId"));
                     routingConfig.setAlertName((String) alertConfig.get("alertName"));
                     routingConfig.setDomain((String) alertConfig.get("domain"));
@@ -188,7 +188,7 @@ public class TemplateService {
             }
 
             routingConfig.setMessageType(finalMessageType);
-            content.setVersion("1");
+            content.setVersion(routingConfig.getVersion());
 
             // FINAL RESPONSE
             response.setRoutingConfig(routingConfig);

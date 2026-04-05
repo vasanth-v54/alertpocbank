@@ -17,7 +17,6 @@ public class TemplateMaster {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String templateId;
     private String templateName;
     @Column(name = "message_type")
     private String messageType;
@@ -78,14 +77,6 @@ public class TemplateMaster {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public String getTemplateId() {
-        return templateId;
-    }
-
-    public void setTemplateId(String templateId) {
-        this.templateId = templateId;
     }
 
     public String getTemplateName() {
@@ -189,8 +180,6 @@ public class TemplateMaster {
         StringBuilder builder = new StringBuilder();
         builder.append("TemplateMaster [id=");
         builder.append(id);
-        builder.append(", templateId=");
-        builder.append(templateId);
         builder.append(", templateName=");
         builder.append(templateName);
         builder.append(", messageType=");
