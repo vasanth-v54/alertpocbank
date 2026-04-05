@@ -10,4 +10,5 @@ public class TemplateContent {
     private Map<String, Object> emailHeaders;
     private Map<String, Object> smsHeaders;
     private String version;
+    private String templateBody;
 }

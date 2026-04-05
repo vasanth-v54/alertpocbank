@@ -28,7 +28,8 @@ public class TemplateMaster {
     @Column(columnDefinition = "json")
     private String headers;
 
-	private String indexContent;
+    @Column(name = "indexed_content", columnDefinition = "json")
+    private String indexContent;
 
     @Column(name = "raw_content", columnDefinition = "json")
     private String rawContent;

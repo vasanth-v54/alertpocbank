@@ -4,7 +4,7 @@ import lombok.Data;
 @Data
 public class RoutingConfig {
 
-    private String templateId;
+    private String templateName;
     private String alertId;
     private String alertName;
     private String domain;

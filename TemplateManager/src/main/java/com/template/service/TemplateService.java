@@ -101,6 +101,7 @@ public class TemplateService {
                 Map<String, Object> headers = parseJson(entity.getHeaders());
                 Map<String, Object> rawContent = parseJson(entity.getRawContent());
                 Map<String, Object> rawParamMap = parseJson(entity.getParamMapping());
+                Map<String, Object> indexedContent = parseJson(entity.getIndexContent());
 
                 Map<String, String> paramMap = new HashMap<>();
                 if (rawParamMap != null) {
@@ -108,8 +109,8 @@ public class TemplateService {
                 }
 
                 // SET ROUTING CONFIG
-                if (routingConfig.getTemplateId() == null) {
-                    routingConfig.setTemplateId(entity.getTemplateName());
+                if (routingConfig.getTemplateName() == null) {
+                    routingConfig.setTemplateName(entity.getTemplateName());
                     routingConfig.setAlertId((String) alertConfig.get("alertId"));
                     routingConfig.setAlertName((String) alertConfig.get("alertName"));
                     routingConfig.setDomain((String) alertConfig.get("domain"));
@@ -143,6 +144,9 @@ public class TemplateService {
                     }
 
                     content.setEmailContent(emailContent);
+                    if (indexedContent != null) {
+                        content.setTemplateBody((String) indexedContent.get("emailContent"));
+                    }
 
                     Map<String, Object> emailHeaders = null;
 
@@ -168,6 +172,10 @@ public class TemplateService {
                     content.setSmsContent(
                             rawContent != null ? (String) rawContent.get("smsContent") : null
                     );
+
+                    if (indexedContent != null) {
+                        content.setTemplateBody((String) indexedContent.get("smsContent"));
+                    }
 
                     content.setSmsHeaders(
                             headers != null ? (Map<String, Object>) headers.get("sms") : null
