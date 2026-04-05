@@ -1,20 +1,21 @@
 package com.notification.consumer.service;
 
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.dlt.DltService;
+import com.notification.consumer.entity.TemplateMaster;
 import com.notification.consumer.logger.VerticalLogger;
-import com.notification.consumer.util.JsonSearchUtil;
+import com.notification.consumer.util.TemplateEngineUtil;
 
 @Service
 public class NotificationService {
@@ -22,6 +23,9 @@ public class NotificationService {
 	private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
 	private final AppConfigService configService;
+
+	@Autowired
+	private TemplateMasterService templateMasterService;
 
 	public NotificationService(AppConfigService configService, DltService dltService, VerticalLogger vlog,
 			Map<String, String> emptyHeaders) {
@@ -56,7 +60,6 @@ public class NotificationService {
 			JsonNode customroot = mapper.readTree(customFieldDetails);
 
 			String messageType = customroot.path("MessageType").asText(null);
-			String originatingSource = customroot.path("originatingsource").asText(null);
 			String alertType = customroot.path("alertType").asText(null);
 
 			vlog.field("EVENT_TYPE", eventType);
@@ -65,55 +68,165 @@ public class NotificationService {
 
 			vlog.stageEnd(2, "CONSUMER CORE", "SUCCESS", eventId);
 
-			String allowedConsumers = configService.getValue("ALLOWED_CONSUMER");
-			Set<String> allowedSet = Arrays.stream(allowedConsumers.split("\\|")).collect(Collectors.toSet());
+			boolean preCheckStatus = false;
 
-			// ================= STAGE 4 =================
-			vlog.stageStart(4, "ROUTING CONFIG LOOKUP", eventId);
+			boolean channelStatus = false;
+			
+			List<String> preCheckkeys = List.of("alertType", "eventType", "originatingSource");
+			List<String> smsCheckList = List.of("mobileNumber");
+			List<String> emailCheckList = List.of("to");
 
-			if (!allowedSet.contains(messageType)) {
-				String error = "Message type is NOT allowed";
-				dltService.logDlt(payload, headers, error);
-				vlog.field("MESSAGE_TYPE", messageType);
-				vlog.field("ERROR_MESSAGE", error);
-				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
-				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
+			Map<String, Boolean> preCheckresult = checkKeys(payload, preCheckkeys);
+			Map<String, Boolean> smsCheckresult = checkKeys(payload, smsCheckList);
+			Map<String, Boolean> emailCheckresult = checkKeys(payload, emailCheckList);
+
+			System.out.println(preCheckresult);
+
+			String preCheckMissing = preCheckresult.entrySet().stream().filter(entry -> !entry.getValue()).map(Map.Entry::getKey)
+					.reduce((a, b) -> a + ", " + b).orElse("");
+			String smsCheckMissing = smsCheckresult.entrySet().stream().filter(entry -> !entry.getValue()).map(Map.Entry::getKey)
+					.reduce((a, b) -> a + ", " + b).orElse("");
+			String emailCheckMissing = emailCheckresult.entrySet().stream().filter(entry -> !entry.getValue()).map(Map.Entry::getKey)
+					.reduce((a, b) -> a + ", " + b).orElse("");
+
+			if (!preCheckMissing.isEmpty()) {
+				String error = "Missing required fields: " + preCheckMissing;
+				log.error(error);
 				return;
+			} else {
+				preCheckStatus = true;
 			}
+			
+			if (!smsCheckMissing.isEmpty() && (messageType.equalsIgnoreCase("SMS") || messageType.equalsIgnoreCase("BOTH"))) {
+				String error = "Missing required fields for SMS: " + smsCheckMissing;
+				log.error(error);
+				return;
+			} else {
+				channelStatus = true;
+			}
+			
+			if (!emailCheckMissing.isEmpty() && (messageType.equalsIgnoreCase("EMAIL")|| messageType.equalsIgnoreCase("BOTH"))) {
+				String error = "Missing required fields for EMAIL: " + emailCheckMissing;
+				log.error(error);
+				return;
+			} else {
+				channelStatus = true;
+			}
+			
 
-			boolean status = false;
-			String precheck = null;
-			// Prechecks
-			if (messageType.equalsIgnoreCase("SMS")) {
-				status = JsonSearchUtil.search(payload, "mobileNumber");
-				if (!status) {
-					precheck = "SMS | 'mobileNumber' is missing";
-				}
-			} else if (messageType.equalsIgnoreCase("EMAIL")) {
-				status = JsonSearchUtil.search(payload, "to");
-				if (!status) {
-					precheck = "EMAIL | 'to' is missing";
-				}
-			} else if (messageType.equalsIgnoreCase("Both")) {
-				boolean s1 = JsonSearchUtil.search(payload, "mobileNumber");
-				boolean s2 = JsonSearchUtil.search(payload, "to");
-				if (s1 && s2) {
-					status = true;
+			if (preCheckStatus && channelStatus) {
+
+				List<TemplateMaster> templates = null;
+				if (messageType.equalsIgnoreCase("BOTH")) {
+					log.info("Check 1 for " + messageType);
+					templates = templateMasterService.getAllActiveTemplates();
+					log.info("Templates " + templates);
+					// For Both Logic
+					
+					List<TemplateMaster> matchedTemplates = templates.stream()
+						    .filter(t -> {
+						        Map<String, Object> alertConfig = t.getAlertConfig();
+
+						        if (alertConfig == null) return false;
+
+						        String templateEventType = String.valueOf(alertConfig.get("eventType"));
+						        String templateAlertType = String.valueOf(alertConfig.get("alertType"));
+
+						        return eventType.equalsIgnoreCase(templateEventType)
+						                && alertType.equalsIgnoreCase(templateAlertType);
+						    })
+						    .toList();
+
+						if (matchedTemplates.isEmpty()) {
+						    String error = "No templates found for eventType=" + eventType + ", alertType=" + alertType;
+						    log.error(error);
+						    dltService.logDlt(payload, headers, error);
+						    return;
+						}
+
+						// 🔥 Loop through matched templates
+						for (TemplateMaster template : matchedTemplates) {
+
+						    String type = template.getMessageType(); // SMS or EMAIL
+						    String finalMessage = null;
+
+						    if ("SMS".equalsIgnoreCase(type)) {
+
+						        finalMessage = TemplateEngineUtil.buildMessage(
+						                payload,
+						                template.getIndexedContent(),
+						                template.getParamMapping(),
+						                "smsContent"
+						        );
+
+						        log.info("Final BOTH | SMS Message:\n{}", finalMessage);
+
+						        // 👉 send SMS
+
+						    } else if ("EMAIL".equalsIgnoreCase(type)) {
+
+						        finalMessage = TemplateEngineUtil.buildMessage(
+						                payload,
+						                template.getIndexedContent(),
+						                template.getParamMapping(),
+						                "emailContent"
+						        );
+
+						        log.info("Final BOTH | EMAIL Message:\n{}", finalMessage);
+
+						        // 👉 send EMAIL
+						    }
+						}
+
 				} else {
-					status = false;
-					precheck = ("Both | Mobile Number or To is missing in payload");
-				}
-			}
+					log.info("Check 2 for " + messageType);
+					templates = templateMasterService.getActiveTemplatesByMessageType(messageType);
+					log.info("Templates " + templates);
 
-			if (status && (!isNullOrEmpty(alertType) && !isNullOrEmpty(eventType))
-					|| (!isNullOrEmpty(eventType) && !isNullOrEmpty(originatingSource))) {
+					TemplateMaster matchedTemplate = templates.stream().filter(t -> {
+						Map<String, Object> alertConfig = t.getAlertConfig();
+
+						if (alertConfig == null)
+							return false;
+
+						String templateEventType = (String) alertConfig.get("eventType");
+						String templateAlertType = (String) alertConfig.get("alertType");
+
+						return eventType.equalsIgnoreCase(templateEventType)
+								&& alertType.equalsIgnoreCase(templateAlertType);
+					}).findFirst().orElse(null);
+
+					log.info("matchedTemplate " + templates);
+
+					if (matchedTemplate == null) {
+						String error = "No template found for eventType=" + eventType + ", alertType=" + alertType;
+
+						log.error(error);
+						dltService.logDlt(payload, headers, error);
+						return;
+					} else {
+						// write a logic
+						String finalMessage = null;
+						if (messageType.equalsIgnoreCase("SMS")) {
+							finalMessage = TemplateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
+									matchedTemplate.getParamMapping(), "smsContent" // or "smsContent"
+							);
+						} else if (messageType.equalsIgnoreCase("EMAIL")) {
+							finalMessage = TemplateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
+									matchedTemplate.getParamMapping(), "emailContent" // or "smsContent"
+							);
+						}
+
+						log.info("Final Message:\n{}", finalMessage);
+					}
+				}
 
 			} else {
-				String error = "Invalid input " + precheck;
+				String error = "Invalid Payload | Please check required Fields are Available or Not";
 				dltService.logDlt(payload, headers, error);
 				vlog.field("ERROR_MESSAGE", error);
 				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
-				vlog.stageError(4, "ROUTING CONFIG LOOKUP", error, null, eventId);
+				vlog.stageError(4, "REQUIRED FIELD VALIDATION", error, null, eventId);
 				return;
 			}
 
@@ -132,6 +245,58 @@ public class NotificationService {
 
 	public static boolean isNullOrEmpty(String value) {
 		return value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null");
+	}
+
+	private static final ObjectMapper mapper = new ObjectMapper();
+
+	public static Map<String, Boolean> checkKeys(String payload, List<String> keys) {
+
+		Map<String, Boolean> result = new HashMap<>();
+
+		try {
+			JsonNode root = mapper.readTree(payload);
+
+			for (String key : keys) {
+				boolean exists = findKey(root, key);
+				result.put(key, exists);
+			}
+
+		} catch (Exception e) {
+			throw new RuntimeException("Error checking keys", e);
+		}
+
+		return result;
+	}
+
+	// 🔥 Recursive search
+	private static boolean findKey(JsonNode node, String targetKey) {
+
+	    if (node == null) return false;
+
+	    // 🔥 Case-insensitive check
+	    if (node.isObject()) {
+	        Iterator<String> fieldNames = node.fieldNames();
+
+	        while (fieldNames.hasNext()) {
+	            String field = fieldNames.next();
+
+	            if (field.equalsIgnoreCase(targetKey)) {
+	                return true;
+	            }
+
+	            if (findKey(node.get(field), targetKey)) {
+	                return true;
+	            }
+	        }
+	    }
+
+	    if (node.isArray()) {
+	        for (JsonNode element : node) {
+	            if (findKey(element, targetKey)) return true;
+	        }
+	    }
+
+	    return false;
 	}
 
 }

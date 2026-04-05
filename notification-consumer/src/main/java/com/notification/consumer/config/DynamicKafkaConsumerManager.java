@@ -28,7 +28,19 @@ public class DynamicKafkaConsumerManager {
     private final DuplicateCheckService duplicateCheckService;
     private final VerticalLogger vlog;
 
-    @PostConstruct
+    
+    public DynamicKafkaConsumerManager(AppConfigService configService, NotificationService notificationService,
+			HeaderValidatorService headerValidatorService, DuplicateCheckService duplicateCheckService,
+			VerticalLogger vlog) {
+		super();
+		this.configService = configService;
+		this.notificationService = notificationService;
+		this.headerValidatorService = headerValidatorService;
+		this.duplicateCheckService = duplicateCheckService;
+		this.vlog = vlog;
+	}
+
+	@PostConstruct
     public void startConsumer() {
 
         Integer consumerCount = configService.getInt("NO_OF_CONSUMER");
