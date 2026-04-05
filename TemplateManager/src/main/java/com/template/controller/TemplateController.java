@@ -18,11 +18,11 @@ public class TemplateController {
 
     private final TemplateService service;
 
-    @GetMapping("/{templateId}")
+    @GetMapping("/{templateName}")
     public ResponseEntity<ApiResponse<TemplateResponseDTO>> getTemplate(
-            @PathVariable String templateId) {
+            @PathVariable String templateName) {
         try {
-            TemplateResponseDTO data = service.getTemplateByTemplateId(templateId);
+            TemplateResponseDTO data = service.getTemplateByTemplateName(templateName);
             return ResponseEntity.ok(ApiResponse.success(data));
         } catch (RuntimeException e) {
             return ResponseEntity

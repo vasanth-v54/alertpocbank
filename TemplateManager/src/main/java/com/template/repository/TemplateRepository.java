@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface TemplateRepository extends JpaRepository<TemplateMaster, Long> {
 
-    List<TemplateMaster> findByTemplateIdAndIsActive(String templateId, String isActive);
+    List<TemplateMaster> findByTemplateNameAndIsActive(String templateName, String isActive);
 
     List<TemplateMaster> findByIsActiveTrue();
 

@@ -22,14 +22,30 @@ public class TemplateService {
        
     // GET TEMPLATE BY ID
        
-    public TemplateResponseDTO getTemplateByTemplateId(String templateId) {
+    public TemplateResponseDTO getTemplateByTemplateName(String templateName) {
 
-        List<TemplateMaster> templates =
+/*        List<TemplateMaster> templates =
                 repository.findByTemplateIdAndIsActive(templateId ,"1");
 
         if (templates == null || templates.isEmpty()) {
             throw new RuntimeException("Template not found for templateId: " + templateId);
         }
+
+        return mapToResponse(templates);*/
+
+        List<TemplateMaster> templates =
+                repository.findByTemplateNameAndIsActive(templateName, "1");
+
+        if (templates == null || templates.isEmpty()) {
+            throw new RuntimeException("Template not found for templateName: " + templateName);
+        }
+
+        templates = templates.stream()
+                .sorted((t1, t2) -> Integer.compare(
+                        Integer.parseInt(t2.getVersion()),
+                        Integer.parseInt(t1.getVersion())
+                ))
+                .toList();
 
         return mapToResponse(templates);
     }
@@ -46,7 +62,7 @@ public class TemplateService {
         // GROUP BY templateId
         Map<String, List<TemplateMaster>> groupedTemplates =
                 allTemplates.stream()
-                        .collect(Collectors.groupingBy(TemplateMaster::getTemplateId));
+                        .collect(Collectors.groupingBy(TemplateMaster::getTemplateName));
 
         List<TemplateResponseDTO> responseList = new ArrayList<>();
 
