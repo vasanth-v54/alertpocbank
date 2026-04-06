@@ -22,7 +22,7 @@ public class TemplateController {
     public ResponseEntity<ApiResponse<TemplateResponseDTO>> getTemplate(
             @PathVariable String templateName) {
         try {
-            TemplateResponseDTO data = service.getTemplateByTemplateName(templateName);
+            TemplateResponseDTO data = service.getTemplate(templateName);
             return ResponseEntity.ok(ApiResponse.success(data));
         } catch (RuntimeException e) {
             return ResponseEntity
@@ -31,7 +31,7 @@ public class TemplateController {
         }
     }
 
-    @GetMapping
+   /* @GetMapping
     public ResponseEntity<ApiResponse<List<TemplateResponseDTO>>> getAllTemplates() {
         try {
             List<TemplateResponseDTO> data = service.getAllTemplates();
@@ -41,5 +41,5 @@ public class TemplateController {
                     .status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.failure(e.getMessage()));
         }
-    }
+    }*/
 }

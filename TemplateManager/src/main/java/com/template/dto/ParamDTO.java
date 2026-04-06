@@ -4,10 +4,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 public class ParamDTO {
-
     private int seq;
     private String parameter;
+    private String mappingType;
+    private String augExpression;
 }
