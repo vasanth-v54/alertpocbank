@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.dto.NotificationRequest;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class TemplateEngineUtil {
@@ -19,6 +22,38 @@ public class TemplateEngineUtil {
      * - result → final message OR missing keys info
      * - keyRequest → index → resolved value
      */
+    
+    private static final Set<String> MASK_FIELDS = new HashSet<>(Arrays.asList(
+            "DisbursementAccount",
+            "ImmediateParentReference",
+            "applicationcustomerid",
+            "ReceiverAccount",
+            "SenderAccount"
+    ));
+    
+    private static String maskValue(String fieldName, String value) {
+
+        if (value == null || value.isEmpty()) return value;
+
+        // check if masking required
+        if (!MASK_FIELDS.contains(fieldName)) {
+            return value;
+        }
+
+        int length = value.length();
+
+        // if <=4, mask fully
+        if (length <= 4) {
+            return "****";
+        }
+
+        int maskLength = length - 4;
+        String maskedPart = "*".repeat(maskLength);
+        String lastFour = value.substring(length - 4);
+
+        return maskedPart + lastFour;
+    }
+    
     public static NotificationRequest buildMessage(String payload,
                                                    Map<String, Object> indexedContent,
                                                    Map<String, Object> paramMapping,
@@ -45,7 +80,10 @@ public class TemplateEngineUtil {
 
                 if (value == null || value.isEmpty()) {
                     missingKeys.add(fieldName);
-                    value = ""; // avoid null replacement
+                    value = "";
+                } else {
+                    // APPLY MASKING HERE
+                    value = maskValue(fieldName, value);
                 }
 
                 // store in keyRequest map
