@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.dlt.DltService;
+import com.notification.consumer.dto.NotificationRequest;
 import com.notification.consumer.entity.TemplateMaster;
 import com.notification.consumer.logger.VerticalLogger;
 import com.notification.consumer.util.TemplateEngineUtil;
@@ -159,7 +160,7 @@ public class NotificationService {
 						for (TemplateMaster template : matchedTemplates) {
 
 						    String type = template.getMessageType(); // SMS or EMAIL
-						    String finalMessage = null;
+						    NotificationRequest finalMessage = null;
 
 						    if ("SMS".equalsIgnoreCase(type)) {
 
@@ -171,7 +172,8 @@ public class NotificationService {
 						        );
 
 						        vlog.stageStart(5, "FINAL RESULT", eventId);
-						        vlog.field("Final Result BOTH|SMS", "\n\n"+finalMessage+"\n");
+						        vlog.field("Final Result", "\n\n"+finalMessage.getKeyRequest()+"\n");
+						        vlog.field("Final Result", "\n\n"+finalMessage.getResult()+"\n");
 						        log.info("Final BOTH | SMS Message:\n{}", finalMessage);
 						        vlog.stageEnd(5, "FINAL RESULT", "SUCCESS", eventId);
 
@@ -227,7 +229,7 @@ public class NotificationService {
 						vlog.field("Fetched Templates", matchedTemplate.toString());
 						vlog.stageEnd(4, "TEMPLATE MASTER VALIDATION", "SUCCESS", eventId);
 						// write a logic
-						String finalMessage = null;
+						NotificationRequest finalMessage = null;
 						if (messageType.equalsIgnoreCase("SMS")) {
 							finalMessage = TemplateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
 									matchedTemplate.getParamMapping(), "smsContent" // or "smsContent"
@@ -240,7 +242,8 @@ public class NotificationService {
 						
 						vlog.stageStart(5, "FINAL RESULT", eventId);
 				        log.info("Final BOTH | EMAIL Message:\n{}", finalMessage);
-				        vlog.field("Final Result", "\n\n"+finalMessage+"\n");
+				        vlog.field("Final Result", "\n\n"+finalMessage.getKeyRequest()+"\n");
+				        vlog.field("Final Result", "\n\n"+finalMessage.getResult()+"\n");
 				        vlog.stageEnd(5, "FINAL RESULT", "SUCCESS", eventId);
 					}
 				}
