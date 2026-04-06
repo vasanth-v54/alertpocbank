@@ -19,26 +19,34 @@ CREATE TABLE DXP_EMAIL_TEMPLATE (
     DATE_UPDATED DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE template_master (
-                                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                                 template_id VARCHAR(36) NOT NULL,
-                                 template_name VARCHAR(200) NOT NULL,
-                                 message_type VARCHAR(20) NOT NULL,
-                                 version VARCHAR(10) NOT NULL,
-                                 alert_config JSON NOT NULL,
-                                 headers JSON NOT NULL,
-                                 raw_content JSON NOT NULL,
-                                 indexed_content JSON NOT NULL,
-                                 param_mapping JSON NOT NULL,
-                                 contentHash VARCHAR(255) DEFAULT NULL,
-                                 exceptionReason VARCHAR(500) DEFAULT NULL,
-                                 isDuplicateallowed BOOLEAN NOT NULL DEFAULT FALSE,
-                                 IS_ACTIVE TINYINT(1) NOT NULL DEFAULT 1,
-                                 created_by VARCHAR(100) NOT NULL,
-                                 modified_by VARCHAR(100) DEFAULT NULL,
-                                 created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                 modified_date DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+-----Updated template_master table
+
+CREATE TABLE dxp.template_master (
+                                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                     template_name VARCHAR(255) NOT NULL,
+                                     version VARCHAR(10),
+                                     message_type VARCHAR(20),
+                                     alert_config JSON,
+                                     headers JSON,
+                                     raw_content JSON,
+                                     indexed_content JSON,
+                                     param_mapping JSON,
+                                     contentHash VARCHAR(255),
+                                     exceptionReason VARCHAR(255),
+                                     isDuplicateallowed BOOLEAN DEFAULT FALSE,
+                                     is_active VARCHAR(1) DEFAULT '1',
+                                     created_by VARCHAR(50),
+                                     modified_by VARCHAR(50),
+                                     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                     modified_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                     created_at TIMESTAMP NULL,
+                                     updated_at TIMESTAMP NULL,
+                                     updated_by VARCHAR(50),
+                                     index_content JSON,
+                                     template_params JSON,
+                                     CONSTRAINT uk_template UNIQUE (template_name, is_active)
 );
+
 
 
 CREATE TABLE TM_TEMPLATE_AUDIT (

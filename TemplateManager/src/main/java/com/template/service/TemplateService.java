@@ -24,19 +24,16 @@ public class TemplateService {
 
     public TemplateResponseDTO getTemplate(String templateName) {
 
-        log.info("Fetching template for templateName: {}", templateName);
-
-        List<TemplateMaster> templates = repository
-                .findByTemplateNameAndIsActive(templateName, "1");
+        List<TemplateMaster> templates =
+                repository.findByTemplateNameAndIsActive(templateName, "1");
 
         if (templates == null || templates.isEmpty()) {
-            log.error("Template not found: {}", templateName);
             throw new RuntimeException("Template not found");
         }
+
         TemplateMaster entity = templates.get(0);
 
         try {
-
             DataDTO data = buildDataDTO(entity);
 
             TemplateResponseDTO response = new TemplateResponseDTO();
@@ -44,12 +41,9 @@ public class TemplateService {
             response.setMessage("Success");
             response.setData(data);
 
-            log.info("Template fetched successfully: {}", templateName);
-
             return response;
 
         } catch (Exception e) {
-            log.error("Error while processing template: {}", templateName, e);
             throw new RuntimeException("Error processing template", e);
         }
     }
