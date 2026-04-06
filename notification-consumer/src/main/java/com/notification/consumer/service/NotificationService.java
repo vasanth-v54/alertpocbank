@@ -49,7 +49,7 @@ public class NotificationService {
 			ObjectMapper mapper = new ObjectMapper();
 
 			// ================= STAGE 2 =================
-			vlog.stageStart(2, "CONSUMER CORE", eventId);
+			vlog.stageStart(3, "CONSUMER CORE", eventId);
 			vlog.field("EVENT_ID", eventId);
 			vlog.section("PAYLOAD RECEIVED :: KEY PARAMETERS VALIDATED");
 
@@ -66,7 +66,7 @@ public class NotificationService {
 			vlog.field("ALERT_TYPE", alertType);
 			vlog.field("MESSAGE_TYPE", messageType);
 
-			vlog.stageEnd(2, "CONSUMER CORE", "SUCCESS", eventId);
+			
 
 			boolean preCheckStatus = false;
 
@@ -92,6 +92,9 @@ public class NotificationService {
 			if (!preCheckMissing.isEmpty()) {
 				String error = "Missing required fields: " + preCheckMissing;
 				log.error(error);
+				vlog.field("ERROR_MESSAGE", error);
+				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
+				vlog.stageError(3, "REQUIRED FIELD VALIDATION", error, null, eventId);
 				return;
 			} else {
 				preCheckStatus = true;
@@ -100,6 +103,9 @@ public class NotificationService {
 			if (!smsCheckMissing.isEmpty() && (messageType.equalsIgnoreCase("SMS") || messageType.equalsIgnoreCase("BOTH"))) {
 				String error = "Missing required fields for SMS: " + smsCheckMissing;
 				log.error(error);
+				vlog.field("ERROR_MESSAGE", error);
+				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
+				vlog.stageError(3, "REQUIRED FIELD VALIDATION", error, null, eventId);
 				return;
 			} else {
 				channelStatus = true;
@@ -108,17 +114,21 @@ public class NotificationService {
 			if (!emailCheckMissing.isEmpty() && (messageType.equalsIgnoreCase("EMAIL")|| messageType.equalsIgnoreCase("BOTH"))) {
 				String error = "Missing required fields for EMAIL: " + emailCheckMissing;
 				log.error(error);
+				vlog.field("ERROR_MESSAGE", error);
+				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
+				vlog.stageError(3, "REQUIRED FIELD VALIDATION", error, null, eventId);
 				return;
 			} else {
 				channelStatus = true;
 			}
 			
-
 			if (preCheckStatus && channelStatus) {
-
+				vlog.stageEnd(3, "CONSUMER CORE", "SUCCESS", eventId);
+				
 				List<TemplateMaster> templates = null;
 				if (messageType.equalsIgnoreCase("BOTH")) {
 					log.info("Check 1 for " + messageType);
+					vlog.stageStart(4, "TEMPLATE MASTER VALIDATION", eventId);
 					templates = templateMasterService.getAllActiveTemplates();
 					log.info("Templates " + templates);
 					// For Both Logic
@@ -143,7 +153,8 @@ public class NotificationService {
 						    dltService.logDlt(payload, headers, error);
 						    return;
 						}
-
+						vlog.field("Fetched Templates for BOTH", matchedTemplates.toString());
+						vlog.stageEnd(4, "TEMPLATE MASTER VALIDATION", "SUCCESS", eventId);
 						// 🔥 Loop through matched templates
 						for (TemplateMaster template : matchedTemplates) {
 
@@ -159,7 +170,10 @@ public class NotificationService {
 						                "smsContent"
 						        );
 
+						        vlog.stageStart(5, "FINAL RESULT", eventId);
+						        vlog.field("Final Result BOTH|SMS", "\n\n"+finalMessage+"\n");
 						        log.info("Final BOTH | SMS Message:\n{}", finalMessage);
+						        vlog.stageEnd(5, "FINAL RESULT", "SUCCESS", eventId);
 
 						        // 👉 send SMS
 
@@ -171,8 +185,11 @@ public class NotificationService {
 						                template.getParamMapping(),
 						                "emailContent"
 						        );
-
+						        
+						        vlog.stageStart(5, "FINAL RESULT", eventId);
+						        vlog.field("Final Result BOTH|EMAIL", "\n\n"+finalMessage+"\n");
 						        log.info("Final BOTH | EMAIL Message:\n{}", finalMessage);
+						        vlog.stageEnd(5, "FINAL RESULT", "SUCCESS", eventId);
 
 						        // 👉 send EMAIL
 						    }
@@ -180,9 +197,10 @@ public class NotificationService {
 
 				} else {
 					log.info("Check 2 for " + messageType);
+					vlog.stageStart(4, "TEMPLATE MASTER VALIDATION", eventId);
 					templates = templateMasterService.getActiveTemplatesByMessageType(messageType);
 					log.info("Templates " + templates);
-
+					
 					TemplateMaster matchedTemplate = templates.stream().filter(t -> {
 						Map<String, Object> alertConfig = t.getAlertConfig();
 
@@ -205,6 +223,9 @@ public class NotificationService {
 						dltService.logDlt(payload, headers, error);
 						return;
 					} else {
+						vlog.field("Message Type", messageType);
+						vlog.field("Fetched Templates", matchedTemplate.toString());
+						vlog.stageEnd(4, "TEMPLATE MASTER VALIDATION", "SUCCESS", eventId);
 						// write a logic
 						String finalMessage = null;
 						if (messageType.equalsIgnoreCase("SMS")) {
@@ -216,8 +237,11 @@ public class NotificationService {
 									matchedTemplate.getParamMapping(), "emailContent" // or "smsContent"
 							);
 						}
-
-						log.info("Final Message:\n{}", finalMessage);
+						
+						vlog.stageStart(5, "FINAL RESULT", eventId);
+				        log.info("Final BOTH | EMAIL Message:\n{}", finalMessage);
+				        vlog.field("Final Result", "\n\n"+finalMessage+"\n");
+				        vlog.stageEnd(5, "FINAL RESULT", "SUCCESS", eventId);
 					}
 				}
 
@@ -225,14 +249,14 @@ public class NotificationService {
 				String error = "Invalid Payload | Please check required Fields are Available or Not";
 				dltService.logDlt(payload, headers, error);
 				vlog.field("ERROR_MESSAGE", error);
-				vlog.field("EXECUTION_STOPPED", "Stage 4 — " + error);
-				vlog.stageError(4, "REQUIRED FIELD VALIDATION", error, null, eventId);
+				vlog.field("EXECUTION_STOPPED", "Stage 3 — " + error);
+				vlog.stageError(3, "REQUIRED FIELD VALIDATION", error, null, eventId);
 				return;
 			}
 
 		} catch (Exception e) {
 			log.error("Exception", e);
-			vlog.stageError(2, "CONSUMER CORE", e.getMessage(), null, eventId);
+			vlog.stageError(3, "CONSUMER CORE", e.getMessage(), null, eventId);
 			dltService.logDlt(payload, headers, e.getMessage());
 		}
 	}
