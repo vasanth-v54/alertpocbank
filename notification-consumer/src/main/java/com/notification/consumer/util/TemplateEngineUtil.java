@@ -1,17 +1,18 @@
 package com.notification.consumer.util;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.consumer.dto.NotificationRequest;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import com.notification.consumer.service.AppConfigService;
 
 public class TemplateEngineUtil {
 
@@ -22,39 +23,33 @@ public class TemplateEngineUtil {
      * - result → final message OR missing keys info
      * - keyRequest → index → resolved value
      */
+   
+    @Autowired
+    private AppConfigService appConfigService;
+
+    private Set<String> getMaskFields() {
+        return appConfigService.getMaskFields();
+    }
     
-    private static final Set<String> MASK_FIELDS = new HashSet<>(Arrays.asList(
-            "DisbursementAccount",
-            "ImmediateParentReference",
-            "applicationcustomerid",
-            "ReceiverAccount",
-            "SenderAccount"
-    ));
-    
-    private static String maskValue(String fieldName, String value) {
+    private String maskValue(String fieldName, String value) {
 
         if (value == null || value.isEmpty()) return value;
 
-        // check if masking required
-        if (!MASK_FIELDS.contains(fieldName)) {
-            return value;
-        }
+        Set<String> maskFields = getMaskFields();
+
+        boolean shouldMask = maskFields.stream()
+                .anyMatch(f -> f.equalsIgnoreCase(fieldName));
+
+        if (!shouldMask) return value;
 
         int length = value.length();
 
-        // if <=4, mask fully
-        if (length <= 4) {
-            return "****";
-        }
+        if (length <= 4) return "****";
 
-        int maskLength = length - 4;
-        String maskedPart = "*".repeat(maskLength);
-        String lastFour = value.substring(length - 4);
-
-        return maskedPart + lastFour;
+        return "*".repeat(length - 4) + value.substring(length - 4);
     }
     
-    public static NotificationRequest buildMessage(String payload,
+    public NotificationRequest buildMessage(String payload,
                                                    Map<String, Object> indexedContent,
                                                    Map<String, Object> paramMapping,
                                                    String contentKey) {

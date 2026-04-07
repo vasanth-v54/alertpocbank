@@ -23,15 +23,15 @@ public class NotificationService {
 
 	private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
-	private final AppConfigService configService;
 
 	@Autowired
 	private TemplateMasterService templateMasterService;
+	
+	TemplateEngineUtil templateEngineUtil;
 
-	public NotificationService(AppConfigService configService, DltService dltService, VerticalLogger vlog,
+	public NotificationService(DltService dltService, VerticalLogger vlog,
 			Map<String, String> emptyHeaders) {
 		super();
-		this.configService = configService;
 		this.dltService = dltService;
 		this.vlog = vlog;
 		this.emptyHeaders = emptyHeaders;
@@ -164,7 +164,7 @@ public class NotificationService {
 
 						    if ("SMS".equalsIgnoreCase(type)) {
 
-						        finalMessage = TemplateEngineUtil.buildMessage(
+						        finalMessage = templateEngineUtil.buildMessage(
 						                payload,
 						                template.getIndexedContent(),
 						                template.getParamMapping(),
@@ -181,7 +181,7 @@ public class NotificationService {
 
 						    } else if ("EMAIL".equalsIgnoreCase(type)) {
 
-						        finalMessage = TemplateEngineUtil.buildMessage(
+						        finalMessage = templateEngineUtil.buildMessage(
 						                payload,
 						                template.getIndexedContent(),
 						                template.getParamMapping(),
@@ -231,11 +231,11 @@ public class NotificationService {
 						// write a logic
 						NotificationRequest finalMessage = null;
 						if (messageType.equalsIgnoreCase("SMS")) {
-							finalMessage = TemplateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
+							finalMessage = templateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
 									matchedTemplate.getParamMapping(), "smsContent" // or "smsContent"
 							);
 						} else if (messageType.equalsIgnoreCase("EMAIL")) {
-							finalMessage = TemplateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
+							finalMessage = templateEngineUtil.buildMessage(payload, matchedTemplate.getIndexedContent(),
 									matchedTemplate.getParamMapping(), "emailContent" // or "smsContent"
 							);
 						}
