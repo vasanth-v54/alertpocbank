@@ -42,6 +42,7 @@ public class TemplateMaster {
     private String paramMapping;
 
     private String contentHash;
+
     private String exceptionReason;
 
     private boolean isDuplicateallowed;

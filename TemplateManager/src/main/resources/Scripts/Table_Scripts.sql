@@ -42,8 +42,6 @@ CREATE TABLE dxp.template_master (
                                      created_at TIMESTAMP NULL,
                                      updated_at TIMESTAMP NULL,
                                      updated_by VARCHAR(50),
-                                     index_content JSON,
-                                     template_params JSON,
                                      CONSTRAINT uk_template UNIQUE (template_name, is_active)
 );
 
@@ -63,9 +61,9 @@ CREATE TABLE TM_TEMPLATE_AUDIT (
 
     mesaageType ENUM('EMAIL', 'SMS', 'BOTH') NOT NULL,
 
-    indexed_content LONGTEXT NULL,      -- Frozen snapshot
+    indexed_content LONGTEXT NULL,
 
-    param_mapping JSON NULL,            -- Frozen snapshot
+    param_mapping JSON NULL,
 
     is_template_active ENUM('DRAFT', 'ACTIVE', 'INACTIVE') NOT NULL,
 
@@ -76,4 +74,6 @@ CREATE TABLE TM_TEMPLATE_AUDIT (
     change_reason ENUM('CREATED', 'EDITED', 'DEACTIVATED') NOT NULL,
 
 );
+
+
 COMMIT;
