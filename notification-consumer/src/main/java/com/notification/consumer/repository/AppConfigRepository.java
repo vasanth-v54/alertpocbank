@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface AppConfigRepository extends JpaRepository<AppConfig, Long> {
 
     Optional<AppConfig> findByConfigKeyAndIsActiveTrue(String configKey);
+    
+    Optional<AppConfig> findByConfigKeyAndIsActive(String configKey, Integer isActive);
+    
+    
 }

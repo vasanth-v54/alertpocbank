@@ -1,0 +1,147 @@
+📘 Azure Setup — Step-by-Step (with exact paths)
+
+All actions are in 👉 Microsoft Azure Portal
+
+🧱 1) Create Resource Group
+📍 Path
+Home → Resource groups → + Create
+Fill
+Resource group: alert-poc-rg
+Region: South India
+
+👉 Create
+
+📡 2) Create Event Hub Namespace
+📍 Path
+Home → Create a resource → Event Hubs → Create
+Fill
+Subscription: (your subscription)
+Resource group: alert-poc-rg
+Namespace name: alertpocns01
+Region: South India
+Pricing tier: Standard
+
+👉 Review + Create
+
+📨 3) Create Event Hub (Topic Equivalent)
+📍 Path
+Resource groups → alert-poc-rg → alertpocns01 → Event Hubs → + Event Hub
+Fill
+Name: notifications.events
+Partition count: 4 (or 8 if you want higher parallelism)
+Message retention: default
+
+👉 Create
+
+👥 4) Create Consumer Group (Optional but recommended)
+📍 Path
+alertpocns01 → Event Hubs → notifications.events → Consumer groups → + Consumer group
+Create
+Name: sms-group
+
+👉 Create
+
+You can also use $Default if you don’t create a custom one.
+
+🔐 5) Get Event Hub Connection String
+📍 Path
+alertpocns01 → Settings → Shared access policies → RootManageSharedAccessKey
+
+👉 Copy:
+
+Connection string–primary key
+📥 6) Create Storage Account (for checkpointing)
+📍 Path
+Home → Create a resource → Storage account → Create
+Fill
+Resource group: alert-poc-rg
+Storage account name: alertpocstorage01
+Region: South India
+Performance: Standard
+Redundancy: LRS
+Primary workload: Other
+
+👉 Review + Create
+
+📦 7) Create Blob Container
+📍 Path
+Resource groups → alert-poc-rg → alertpocstorage01 → Data storage → Containers → + Container
+Fill
+Name: checkpoint-container
+Access level: Private
+
+👉 Create
+
+🔑 8) Get Storage Connection String
+📍 Path
+alertpocstorage01 → Security + networking → Access keys
+
+👉 Copy:
+
+Connection string (key1)
+⚙️ 9) Map to Your Applications
+✅ Producer Config
+azure.eventhub.connection-string=<<EventHub connection string>>
+azure.eventhub.name=notifications.events
+✅ Consumer Config
+azure.eventhub.connection-string=<<EventHub connection string>>
+azure.eventhub.name=notifications.events
+azure.eventhub.consumer-group=sms-group   # OR $Default
+
+azure.storage.connection-string=<<Storage connection string>>
+azure.storage.container-name=checkpoint-container
+🔍 10) Verification in Azure UI
+📊 Check Producer (Messages)
+📍 Path
+alertpocns01 → Overview → Metrics
+
+Select:
+
+Metric: Incoming Messages
+Time range: Last 5 min
+
+✔ Should increase when producer runs
+
+📥 Check Consumer Checkpoint
+📍 Path
+alertpocstorage01 → Containers → checkpoint-container
+
+✔ You should see:
+
+ownership/
+checkpoint/
+🧠 11) Concept Mapping (Important)
+Azure	Kafka Equivalent
+Event Hub	Topic
+Partition	Partition
+Consumer Group	Consumer Group
+Blob checkpoint	Offset commit
+⚠️ 12) Common Mistakes
+❌ Wrong consumer group
+Fix → create group OR use $Default
+❌ No events consumed
+Fix →
+- Add earliest()
+- Delete checkpoint blobs
+❌ No metrics
+Fix → check connection string / event hub name
+❌ Storage not working
+Fix →
+- Container name mismatch
+- Wrong connection string
+🚀 FINAL FLOW
+Producer → Event Hub (notifications.events)
+                         ↓
+                Consumer (EventProcessorClient)
+                         ↓
+                 Blob Storage (checkpoint)
+				 
+✅ YOU HAVE CONFIGURED
+Resource				Status
+Resource Group			✅
+Event Hub Namespace		✅
+Event Hub				✅
+Consumer Group			✅
+Storage Account			✅
+Blob Container			✅
+Connection Strings		✅

@@ -6,38 +6,39 @@ spring:
     name: notification-consumer
 
   datasource:
-    url: jdbc:mysql://localhost:3306/alert
+    url: jdbc:mysql://localhost:3306/DXP
     username: root
-    password: root1234
+    password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: none   # use 'update' only for local testing if needed
+      ddl-auto: none   # keep as-is
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl  # 🔥 FIX
     show-sql: true
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect   # ✅ updated (MySQL8Dialect deprecated)
         format_sql: true
 
   cache:
-    type: simple   # required for @Cacheable
+    type: simple
 
   kafka:
     bootstrap-servers: localhost:9092
 
     consumer:
       auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 50
 
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
-      # 🔥 Recommended configs
-      enable-auto-commit: false
-      max-poll-records: 50
 
 logging:
   level:
     org.apache.kafka: INFO
     org.springframework.kafka: INFO
     org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE   # 🔥 shows query params (very useful)

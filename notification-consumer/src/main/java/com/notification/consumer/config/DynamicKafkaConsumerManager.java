@@ -28,7 +28,19 @@ public class DynamicKafkaConsumerManager {
     private final DuplicateCheckService duplicateCheckService;
     private final VerticalLogger vlog;
 
-    @PostConstruct
+    
+    public DynamicKafkaConsumerManager(AppConfigService configService, NotificationService notificationService,
+			HeaderValidatorService headerValidatorService, DuplicateCheckService duplicateCheckService,
+			VerticalLogger vlog) {
+		super();
+		this.configService = configService;
+		this.notificationService = notificationService;
+		this.headerValidatorService = headerValidatorService;
+		this.duplicateCheckService = duplicateCheckService;
+		this.vlog = vlog;
+	}
+
+	@PostConstruct
     public void startConsumer() {
 
         Integer consumerCount = configService.getInt("NO_OF_CONSUMER");
@@ -76,18 +88,18 @@ public class DynamicKafkaConsumerManager {
                         vlog.stageEnd(1, "SEED SAMPLE PAYLOAD", "SUCCESS", eventId);
 
                         // Stage 3 wraps header validation + duplicate check
-                        vlog.stageStart(3, "VALIDATIONS & DUPLICATE CHECK", eventId);
+                        vlog.stageStart(2, "VALIDATIONS & DUPLICATE CHECK", eventId);
 
                         try {
 
                             // Step 1: Validate headers
-                            vlog.section("STEP 3a — Header Validation");
+                            vlog.section("STEP 2a — Header Validation");
                             headerValidatorService.validateHeaders(headers, payload);
                             vlog.field("HEADER_VALIDATION", "PASSED");
                             vlog.field("VALIDATED_HEADERS", "event-type, event-id, MessageType, status");
 
                             // Step 2: Duplicate check
-                            vlog.section("STEP 3b — Duplicate Check");
+                            vlog.section("STEP 2b — Duplicate Check");
                             vlog.field("EVENT_ID", eventId);
                             vlog.field("MESSAGE_TYPE", headers.getOrDefault("MessageType", "N/A"));
                             duplicateCheckService.checkDuplicate(eventId, payload, headers);
@@ -95,7 +107,7 @@ public class DynamicKafkaConsumerManager {
                             vlog.field("DB_AUDIT_SAVE", "SAVED — status=CONSUMED in consumer_entry_audit");
                             vlog.field("ERROR_MESSAGE", "NULL");
 
-                            vlog.stageEnd(3, "VALIDATIONS & DUPLICATE CHECK", "SUCCESS", eventId);
+                            vlog.stageEnd(2, "VALIDATIONS & DUPLICATE CHECK", "SUCCESS", eventId);
 
                             // Step 3: Process if valid
                             notificationService.process(payload, headers);
@@ -104,7 +116,7 @@ public class DynamicKafkaConsumerManager {
 
                             // header validation or duplicate check threw — log rainy scenario
                             vlog.field("ERROR_MESSAGE", ex.getMessage());
-                            vlog.stageError(3, "VALIDATIONS & DUPLICATE CHECK", ex.getMessage(), ex, eventId);
+                            vlog.stageError(2, "VALIDATIONS & DUPLICATE CHECK", ex.getMessage(), ex, eventId);
 
                             // Already logged to DLT
                             System.out.println("Message moved to DLT: " + ex.getMessage());
