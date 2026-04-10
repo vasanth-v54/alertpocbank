@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.templatemaster</groupId>
-	<artifactId>api_devlop</artifactId>
+	<artifactId>TemplateManager</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
+	<name>TemplateManager</name>
 	<description/>
 	<url/>
 	<licenses>
