@@ -13,21 +13,21 @@ import jakarta.persistence.Table;
 @Table(name = "dxp_sms_template")
 public class SmsTemplate {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Integer id;
 
-    @Column(name = "template_name", unique = true)
-    private String templateName;
+	@Column(name = "template_name", unique = true)
+	private String templateName;
 
-    @Column(name = "template_body")
-    private String templateBody;
+	@Column(name = "template_body")
+	private String templateBody;
 
-    @Column(name = "is_active")
-    private Boolean isActive;
+	@Column(name = "is_active")
+	private Boolean isActive;
 
-    private LocalDateTime dateCreated;
-    private LocalDateTime dateUpdated;
+	private LocalDateTime dateCreated;
+	private LocalDateTime dateUpdated;
 	public Integer getId() {
 		return id;
 	}
@@ -64,6 +64,6 @@ public class SmsTemplate {
 	public void setDateUpdated(LocalDateTime dateUpdated) {
 		this.dateUpdated = dateUpdated;
 	}
-    
-    
+
+
 }

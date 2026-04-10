@@ -7,113 +7,129 @@ import java.time.LocalDateTime;
 @Table(name = "app_config")
 public class AppConfig {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	@Column(name = "config_key", unique = true, nullable = false)
-	private String configKey;
+    @Column(name = "config_key", unique = true, nullable = false)
+    private String configKey;
 
-	@Column(name = "config_value", nullable = false)
-	private String configValue;
+    @Column(name = "config_value", nullable = false)
+    private String configValue;
 
-	private Boolean isActive;
+    @Column(name = "is_active")   // ✅ FIXED
+    private Boolean isActive;
 
-	private String flexifield1;
-	private String flexifield2;
-	private String flexifield3;
+    @Column(name = "flexifield1")
+    private String flexifield1;
 
-	private String createdBy;
-	private LocalDateTime createdOn;
-	private String updatedBy;
-	private LocalDateTime updatedOn;
+    @Column(name = "flexifield2")
+    private String flexifield2;
 
-	public Long getId() {
-		return id;
-	}
+    @Column(name = "flexifield3")
+    private String flexifield3;
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+    @Column(name = "created_by")
+    private String createdBy;
 
-	public String getConfigKey() {
-		return configKey;
-	}
+    @Column(name = "created_on")
+    private LocalDateTime createdOn;
 
-	public void setConfigKey(String configKey) {
-		this.configKey = configKey;
-	}
+    @Column(name = "updated_by")
+    private String updatedBy;
 
-	public String getConfigValue() {
-		return configValue;
-	}
+    @Column(name = "updated_on")
+    private LocalDateTime updatedOn;
 
-	public void setConfigValue(String configValue) {
-		this.configValue = configValue;
-	}
+    // ================= GETTERS & SETTERS =================
 
-	public Boolean getIsActive() {
-		return isActive;
-	}
+    public Long getId() {
+        return id;
+    }
 
-	public void setIsActive(Boolean isActive) {
-		this.isActive = isActive;
-	}
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-	public String getFlexifield1() {
-		return flexifield1;
-	}
+    public String getConfigKey() {
+        return configKey;
+    }
 
-	public void setFlexifield1(String flexifield1) {
-		this.flexifield1 = flexifield1;
-	}
+    public void setConfigKey(String configKey) {
+        this.configKey = configKey;
+    }
 
-	public String getFlexifield2() {
-		return flexifield2;
-	}
+    public String getConfigValue() {
+        return configValue;
+    }
 
-	public void setFlexifield2(String flexifield2) {
-		this.flexifield2 = flexifield2;
-	}
+    public void setConfigValue(String configValue) {
+        this.configValue = configValue;
+    }
 
-	public String getFlexifield3() {
-		return flexifield3;
-	}
+    public Boolean getIsActive() {
+        return isActive;
+    }
 
-	public void setFlexifield3(String flexifield3) {
-		this.flexifield3 = flexifield3;
-	}
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
 
-	public String getCreatedBy() {
-		return createdBy;
-	}
+    public String getFlexifield1() {
+        return flexifield1;
+    }
 
-	public void setCreatedBy(String createdBy) {
-		this.createdBy = createdBy;
-	}
+    public void setFlexifield1(String flexifield1) {
+        this.flexifield1 = flexifield1;
+    }
 
-	public LocalDateTime getCreatedOn() {
-		return createdOn;
-	}
+    public String getFlexifield2() {
+        return flexifield2;
+    }
 
-	public void setCreatedOn(LocalDateTime createdOn) {
-		this.createdOn = createdOn;
-	}
+    public void setFlexifield2(String flexifield2) {
+        this.flexifield2 = flexifield2;
+    }
 
-	public String getUpdatedBy() {
-		return updatedBy;
-	}
+    public String getFlexifield3() {
+        return flexifield3;
+    }
 
-	public void setUpdatedBy(String updatedBy) {
-		this.updatedBy = updatedBy;
-	}
+    public void setFlexifield3(String flexifield3) {
+        this.flexifield3 = flexifield3;
+    }
 
-	public LocalDateTime getUpdatedOn() {
-		return updatedOn;
-	}
+    public String getCreatedBy() {
+        return createdBy;
+    }
 
-	public void setUpdatedOn(LocalDateTime updatedOn) {
-		this.updatedOn = updatedOn;
-	}
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 
+    public LocalDateTime getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(LocalDateTime createdOn) {
+        this.createdOn = createdOn;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public LocalDateTime getUpdatedOn() {
+        return updatedOn;
+    }
+
+    public void setUpdatedOn(LocalDateTime updatedOn) {
+        this.updatedOn = updatedOn;
+    }
+    
+    
 }
