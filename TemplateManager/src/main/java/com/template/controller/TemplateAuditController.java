@@ -1,6 +1,8 @@
 package com.template.controller;
 
+import com.template.api.model.TemplateAuditDto;
 import com.template.entity.TemplateAudit;
+import com.template.mapper.AuditMapper;
 import com.template.service.TemplateAuditService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,13 +16,16 @@ import java.util.List;
 public class TemplateAuditController {
 
     private final TemplateAuditService service;
+    private final AuditMapper auditMapper; // Inject the mapper
 
-    public TemplateAuditController(TemplateAuditService service) {
+    public TemplateAuditController(TemplateAuditService service, AuditMapper auditMapper) {
         this.service = service;
+        this.auditMapper = auditMapper;
     }
 
     @GetMapping("/{id}/audit")
-    public List<TemplateAudit> getTemplateAudits(@PathVariable("id") Long templateId) {
-        return service.getAuditsByTemplateId(templateId);
+    public List<TemplateAuditDto> getTemplateAudits(@PathVariable("id") Long templateId) {
+        List<TemplateAudit> audits = service.getAuditsByTemplateId(templateId);
+        return auditMapper.toDto(audits);
     }
 }

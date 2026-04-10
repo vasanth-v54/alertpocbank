@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: Template Manager API
+  description: API for managing templates and their audit history.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082
+    description: Local development server
+
+paths:
+  /api/v1/audits/templates/{templateId}:
+    get:
+      summary: Get Audit History for a Template
+      description: Retrieves the complete version history for a single template.
+      operationId: getTemplateAuditsById
+      tags:
+        - Template Audits
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          description: The unique identifier of the template.
+          schema:
+            type: integer
+            format: int64
+            example: 123
+      responses:
+        '200':
+          description: A list of audit records for the template.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateAuditDto'
+        '404':
+          description: The template with the specified ID was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: An unexpected internal server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    TemplateAuditDto:
+      type: object
+      properties:
+        auditId:
+          type: string
+          format: uuid
+          description: The unique identifier for the audit record itself.
+        templateId:
+          type: integer
+          format: int64
+        templateName:
+          type: string
+        version:
+          type: string
+        channel:
+          type: string
+          enum: [EMAIL, SMS, BOTH]
+        isTemplateActive:
+          type: string
+          enum: [DRAFT, ACTIVE, INACTIVE]
+        changedBy:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+        changeReason:
+          type: string
+          enum: [CREATED, EDITED, DEACTIVATED]
+    ApiError:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
