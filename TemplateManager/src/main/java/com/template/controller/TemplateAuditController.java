@@ -16,7 +16,7 @@ import java.util.List;
 public class TemplateAuditController {
 
     private final TemplateAuditService service;
-    private final AuditMapper auditMapper; // Inject the mapper
+    private final AuditMapper auditMapper;
 
     public TemplateAuditController(TemplateAuditService service, AuditMapper auditMapper) {
         this.service = service;
