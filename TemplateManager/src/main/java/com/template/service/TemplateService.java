@@ -4,6 +4,7 @@ import com.template.dto.*;
 import com.template.entity.EmailTemplate;
 import com.template.entity.SmsTemplate;
 import com.template.entity.TemplateMaster;
+import com.template.entity.TemplateMaster.Channel;
 import com.template.enums.DXP_Status;
 import com.template.repository.EmailTemplateRepository;
 import com.template.repository.SmsTemplateRepository;
@@ -34,34 +35,32 @@ public class TemplateService {
                 .orElseThrow(() -> new RuntimeException("Template not found with ID: " + id));
 
         DXP_Status requestedStatus = templateToggleStatusRequestDTO.getStatus();
+        Channel messageType = template.getMessageType();
 
-        if ("SMS".equalsIgnoreCase(template.getMessageType())) {
-            if (requestedStatus == DXP_Status.ACTIVE) {
-                activateTemplateIfMessageTypeIsSMS(template, templateToggleStatusRequestDTO);
-            } else {
-                deactivateTempalateIfMessageTypeIsSMS(id, template.getTemplateName(),
-                        templateToggleStatusRequestDTO);
-            }
-
-        } else if ("EMAIL".equalsIgnoreCase(template.getMessageType())) {
-
-            if (requestedStatus == DXP_Status.ACTIVE) {
-                activateTemplateIfMessageTypeIsEMAIL(template, templateToggleStatusRequestDTO);
-            } else {
-                deactivateTemplateIfMessageTypeIsEMAIL(id, template.getTemplateName(),
-                        templateToggleStatusRequestDTO);
-            }
-
-        } else if ("BOTH".equalsIgnoreCase(template.getMessageType())) {
-            if (requestedStatus == DXP_Status.ACTIVE){
-                activateTemplateIfMessageTypeIsBOTH(id, template, templateToggleStatusRequestDTO);
-            } else {
-                deactivateTemplateIfMessageTypeIsBOTH(id, template.getTemplateName(),
-                        templateToggleStatusRequestDTO);
-            }
-
-        }else {
-            throw new RuntimeException("Unsupported message type: " + template.getMessageType());
+        switch (messageType) {
+            case SMS:
+                if (requestedStatus == DXP_Status.ACTIVE) {
+                    activateTemplateIfMessageTypeIsSMS(template, templateToggleStatusRequestDTO);
+                } else {
+                    deactivateTempalateIfMessageTypeIsSMS(id, template.getTemplateName(), templateToggleStatusRequestDTO);
+                }
+                break;
+            case EMAIL:
+                if (requestedStatus == DXP_Status.ACTIVE) {
+                    activateTemplateIfMessageTypeIsEMAIL(template, templateToggleStatusRequestDTO);
+                } else {
+                    deactivateTemplateIfMessageTypeIsEMAIL(id, template.getTemplateName(), templateToggleStatusRequestDTO);
+                }
+                break;
+            case BOTH:
+                if (requestedStatus == DXP_Status.ACTIVE) {
+                    activateTemplateIfMessageTypeIsBOTH(id, template, templateToggleStatusRequestDTO);
+                } else {
+                    deactivateTemplateIfMessageTypeIsBOTH(id, template.getTemplateName(), templateToggleStatusRequestDTO);
+                }
+                break;
+            default:
+                throw new RuntimeException("Unsupported message type: " + messageType);
         }
 
         return TemplateToggleStatusResponseDTO.builder()
@@ -82,7 +81,6 @@ public class TemplateService {
         int updatedRawsInTemplateMaster = templateMasterRepository.deactivateById(id,
                 templateToggleStatusRequestDTO.getPerformedBy());
 
-        // Smart Sync: Only error if NOTHING was changed
         if (updatedRawsInSMS == 0 && updatedRawsInTemplateMaster == 0) {
             throw new RuntimeException("Both SMS and Master templates were already INACTIVE with id: " + id);
         }
@@ -101,82 +99,67 @@ public class TemplateService {
 
         return (updatedRowsInEmail == 1 || updatedRowsInTemplateMaster == 1) ? 1 : 0;
     }
+
     @Transactional
     public int deactivateTemplateIfMessageTypeIsBOTH(Long id, String templateName, TemplateToggleStatusRequestDTO dto) {
         int updatedRawsInSMS = smsTemplateRepository.deactivateTemplate(templateName);
         int updatedRowsInEmail = emailTemplateRepository.deactivateTemplate(templateName);
         int updatedRowsInTemplateMaster = templateMasterRepository.deactivateById(id, dto.getPerformedBy());
 
-        // Nothing Updated
         if (updatedRawsInSMS == 0 && updatedRowsInEmail == 0 && updatedRowsInTemplateMaster == 0) {
             throw new RuntimeException("SMS, Email and Master templates were already INACTIVE with id: " + id);
         }
 
-        // Case 2: All updated
         if (updatedRawsInSMS == 1 && updatedRowsInEmail == 1 && updatedRowsInTemplateMaster == 1) {
             return 1;
         }
 
-        // Case 3: Partial update (INCONSISTENT STATE)
         throw new RuntimeException(
                 "Partial update detected! SMS: " + updatedRawsInSMS +
                         ", EMAIL: " + updatedRowsInEmail +
                         ", MASTER: " + updatedRowsInTemplateMaster +
-                        " for id: " + id
-        );
+                        " for id: " + id);
     }
+
     @Transactional
     public int activateTemplateIfMessageTypeIsSMS(TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
-        // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "SMS", dto.getPerformedBy());
-
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), templateToActivate.getMessageType(), dto.getPerformedBy());
         int updatedRowsInSMS = smsTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInTemplateMaster = templateMasterRepository.activateById(templateToActivate.getId(), dto.getPerformedBy());
-
         return (updatedRowsInTemplateMaster == 1 || updatedRowsInSMS == 1) ? 1 : 0;
     }
 
     @Transactional
     public int activateTemplateIfMessageTypeIsEMAIL(TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
-        // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "EMAIL", dto.getPerformedBy());
-
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), templateToActivate.getMessageType(), dto.getPerformedBy());
         int updatedRowsInEmail = emailTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInTemplateMaster = templateMasterRepository.activateById(templateToActivate.getId(), dto.getPerformedBy());
-
         return (updatedRowsInTemplateMaster == 1 || updatedRowsInEmail == 1) ? 1 : 0;
     }
+
     @Transactional
     public int activateTemplateIfMessageTypeIsBOTH(Long id, TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
-        // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "BOTH", dto.getPerformedBy());
-
-
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), templateToActivate.getMessageType(), dto.getPerformedBy());
         int updatedRawsInSMS = smsTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInEmail = emailTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInTemplateMaster = templateMasterRepository.activateById(templateToActivate.getId(), dto.getPerformedBy());
 
-        // Nothing Updated
         if (updatedRawsInSMS == 0 && updatedRowsInEmail == 0 && updatedRowsInTemplateMaster == 0) {
             throw new RuntimeException("SMS, Email and Master templates were already INACTIVE with id: " + id);
         }
 
-        // Case 2: All updated
         if (updatedRawsInSMS == 1 && updatedRowsInEmail == 1 && updatedRowsInTemplateMaster == 1) {
             return 1;
         }
 
-        // Case 3: Partial update (INCONSISTENT STATE)
         throw new RuntimeException(
                 "Partial update detected! SMS: " + updatedRawsInSMS +
                         ", EMAIL: " + updatedRowsInEmail +
                         ", MASTER: " + updatedRowsInTemplateMaster +
-                        " for id: " + id
-        );
+                        " for id: " + id);
     }
 
-
-    private void deactivateOtherActiveVersions(String templateName, String messageType, String performedBy) {
+    private void deactivateOtherActiveVersions(String templateName, Channel messageType, String performedBy) {
         List<TemplateMaster> actives = templateMasterRepository.findAllByTemplateNameAndMessageTypeAndIsActive(
                 templateName, messageType, true);
         for (TemplateMaster active : actives) {
@@ -185,13 +168,17 @@ public class TemplateService {
             active.setModifiedDate(LocalDateTime.now());
             templateMasterRepository.save(active);
 
-            if ("SMS".equalsIgnoreCase(messageType)) {
-                smsTemplateRepository.deactivateTemplate(active.getTemplateName());
-            } else if ("EMAIL".equalsIgnoreCase(messageType)) {
-                emailTemplateRepository.deactivateTemplate(active.getTemplateName());
-            } else if ("BOTH".equalsIgnoreCase(messageType)){
-                smsTemplateRepository.deactivateTemplate(active.getTemplateName());
-                emailTemplateRepository.deactivateTemplate(active.getTemplateName());
+            switch (messageType) {
+                case SMS:
+                    smsTemplateRepository.deactivateTemplate(active.getTemplateName());
+                    break;
+                case EMAIL:
+                    emailTemplateRepository.deactivateTemplate(active.getTemplateName());
+                    break;
+                case BOTH:
+                    smsTemplateRepository.deactivateTemplate(active.getTemplateName());
+                    emailTemplateRepository.deactivateTemplate(active.getTemplateName());
+                    break;
             }
         }
     }
@@ -202,66 +189,62 @@ public class TemplateService {
                 .orElseThrow(() -> new RuntimeException("Template not found with ID: " + id));
 
         String nextVersion = incrementVersion(current.getVersion());
+        Channel messageType = current.getMessageType();
 
-        if ("SMS".equalsIgnoreCase(current.getMessageType())) {
-            SmsTemplate oldSms = smsTemplateRepository.findByTemplateName(current.getTemplateName())
-                    .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));
+        switch (messageType) {
+            case SMS:
+                SmsTemplate oldSms = smsTemplateRepository.findByTemplateName(current.getTemplateName())
+                        .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));
+                SmsTemplate newSms = new SmsTemplate();
+                newSms.setTemplateName(oldSms.getTemplateName().split("_v")[0] + "_" + nextVersion);
+                newSms.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldSms.getTemplateBody());
+                String status = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
+                newSms.setIsActive("ACTIVE".equalsIgnoreCase(status));
+                newSms.setDateCreated(LocalDateTime.now());
+                newSms.setDateUpdated(LocalDateTime.now());
+                smsTemplateRepository.save(newSms);
+                smsTemplateRepository.deactivateTemplate(oldSms.getTemplateName());
+                break;
+            case EMAIL:
+                EmailTemplate oldEmail = emailTemplateRepository.findByTemplateName(current.getTemplateName())
+                        .orElseThrow(() -> new RuntimeException("Email Template not found with name: " + current.getTemplateName()));
+                EmailTemplate newEmail = new EmailTemplate();
+                newEmail.setTemplateName(oldEmail.getTemplateName().split("_v")[0] + "_" + nextVersion);
+                newEmail.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldEmail.getTemplateBody());
+                String emailStatus = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
+                newEmail.setIsActive("ACTIVE".equalsIgnoreCase(emailStatus));
+                newEmail.setDateCreated(LocalDateTime.now());
+                newEmail.setDateUpdated(LocalDateTime.now());
+                emailTemplateRepository.save(newEmail);
+                emailTemplateRepository.deactivateTemplate(oldEmail.getTemplateName());
+                break;
+            case BOTH:
+                SmsTemplate oldSmsBoth = smsTemplateRepository.findByTemplateName(current.getTemplateName())
+                        .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));
+                EmailTemplate oldEmailBoth = emailTemplateRepository.findByTemplateName(current.getTemplateName())
+                        .orElseThrow(() -> new RuntimeException("Email Template not found with name: " + current.getTemplateName()));
 
-            SmsTemplate newSms = new SmsTemplate();
-            newSms.setTemplateName(oldSms.getTemplateName().split("_v")[0] + "_" + nextVersion);
-            newSms.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldSms.getTemplateBody());
-            String status = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
-            newSms.setIsActive("ACTIVE".equalsIgnoreCase(status));
-            newSms.setDateCreated(LocalDateTime.now());
-            newSms.setDateUpdated(LocalDateTime.now());
-            newSms = smsTemplateRepository.save(newSms);
+                SmsTemplate newSmsBoth = new SmsTemplate();
+                newSmsBoth.setTemplateName(oldSmsBoth.getTemplateName().split("_v")[0] + "_" + nextVersion);
+                newSmsBoth.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldSmsBoth.getTemplateBody());
+                String smsStatusBoth = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
+                newSmsBoth.setIsActive("ACTIVE".equalsIgnoreCase(smsStatusBoth));
+                newSmsBoth.setDateCreated(LocalDateTime.now());
+                newSmsBoth.setDateUpdated(LocalDateTime.now());
+                smsTemplateRepository.save(newSmsBoth);
 
+                EmailTemplate newEmailBoth = new EmailTemplate();
+                newEmailBoth.setTemplateName(oldEmailBoth.getTemplateName().split("_v")[0] + "_" + nextVersion);
+                newEmailBoth.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldEmailBoth.getTemplateBody());
+                String emailStatusBoth = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
+                newEmailBoth.setIsActive("ACTIVE".equalsIgnoreCase(emailStatusBoth));
+                newEmailBoth.setDateCreated(LocalDateTime.now());
+                newEmailBoth.setDateUpdated(LocalDateTime.now());
+                emailTemplateRepository.save(newEmailBoth);
 
-            smsTemplateRepository.deactivateTemplate(oldSms.getTemplateName());
-
-        } else if ("EMAIL".equalsIgnoreCase(current.getMessageType())) {
-            EmailTemplate oldEmail = emailTemplateRepository.findByTemplateName(current.getTemplateName())
-                    .orElseThrow(() -> new RuntimeException("Email Template not found with name: " + current.getTemplateName()));
-
-            EmailTemplate newEmail = new EmailTemplate();
-            newEmail.setTemplateName(oldEmail.getTemplateName().split("_v")[0] + "_" + nextVersion);
-            newEmail.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldEmail.getTemplateBody());
-            String status = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
-            newEmail.setIsActive("ACTIVE".equalsIgnoreCase(status));
-            newEmail.setDateCreated(LocalDateTime.now());
-            newEmail.setDateUpdated(LocalDateTime.now());
-            newEmail = emailTemplateRepository.save(newEmail);
-
-            emailTemplateRepository.deactivateTemplate(oldEmail.getTemplateName());
-
-        } else if ("BOTH".equalsIgnoreCase(current.getMessageType())) {
-
-            SmsTemplate oldSms = smsTemplateRepository.findByTemplateName(current.getTemplateName())
-                    .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));
-
-            EmailTemplate oldEmail = emailTemplateRepository.findByTemplateName(current.getTemplateName())
-                    .orElseThrow(() -> new RuntimeException("Email Template not found with name: " + current.getTemplateName()));
-
-            SmsTemplate newSms = new SmsTemplate();
-            newSms.setTemplateName(oldSms.getTemplateName().split("_v")[0] + "_" + nextVersion);
-            newSms.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldSms.getTemplateBody());
-            String smsStatus = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
-            newSms.setIsActive("ACTIVE".equalsIgnoreCase(smsStatus));
-            newSms.setDateCreated(LocalDateTime.now());
-            newSms.setDateUpdated(LocalDateTime.now());
-            newSms = smsTemplateRepository.save(newSms);
-
-            EmailTemplate newEmail = new EmailTemplate();
-            newEmail.setTemplateName(oldEmail.getTemplateName().split("_v")[0] + "_" + nextVersion);
-            newEmail.setTemplateBody(dto.getRawContent() != null ? dto.getRawContent() : oldEmail.getTemplateBody());
-            String emailStatus = dto.getStatus() != null ? dto.getStatus() : "ACTIVE";
-            newEmail.setIsActive("ACTIVE".equalsIgnoreCase(emailStatus));
-            newEmail.setDateCreated(LocalDateTime.now());
-            newEmail.setDateUpdated(LocalDateTime.now());
-            newEmail = emailTemplateRepository.save(newEmail);
-
-            smsTemplateRepository.deactivateTemplate(oldSms.getTemplateName());
-            emailTemplateRepository.deactivateTemplate(oldEmail.getTemplateName());
+                smsTemplateRepository.deactivateTemplate(oldSmsBoth.getTemplateName());
+                emailTemplateRepository.deactivateTemplate(oldEmailBoth.getTemplateName());
+                break;
         }
 
         TemplateMaster nextVersionTemplate = TemplateMaster.builder()
@@ -270,8 +253,6 @@ public class TemplateService {
                 .version(nextVersion)
                 .alertConfig(dto.getAlertConfig() != null ? dto.getAlertConfig() : current.getAlertConfig())
                 .headers(dto.getHeaders() != null ? dto.getHeaders() : current.getHeaders())
-//                .rawContent(dto.getRawContent() != null ? dto.getRawContent() : current.getRawContent())
-//                .indexedContent(current.getIndexedContent())
                 .rawContent(dto.getRawContent() != null ? toJson(dto.getRawContent()) : current.getRawContent())
                 .indexedContent(current.getIndexedContent())
                 .paramMapping(dto.getParamMapping() != null ? dto.getParamMapping() : current.getParamMapping())
@@ -313,12 +294,10 @@ public class TemplateService {
 
     private String toJson(String value) {
         if (value == null) return null;
-        // Already valid JSON (starts with { or [ or is quoted)
         String trimmed = value.trim();
         if (trimmed.startsWith("{") || trimmed.startsWith("[") || trimmed.startsWith("\"")) {
             return value;
         }
-        // Plain string — wrap it
         return "{\"body\": " + "\"" + value.replace("\"", "\\\"") + "\"}";
     }
 }

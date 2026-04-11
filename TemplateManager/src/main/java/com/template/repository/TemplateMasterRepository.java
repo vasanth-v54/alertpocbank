@@ -1,6 +1,7 @@
 package com.template.repository;
 
 import com.template.entity.TemplateMaster;
+import com.template.entity.TemplateMaster.Channel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -47,8 +48,8 @@ public interface TemplateMasterRepository extends JpaRepository<TemplateMaster, 
       AND t.isActive = true
 """)
     int deactivateOthersByTemplateNameAndMessageType(@Param("templateName") String templateName,
-                                                     @Param("messageType") String messageType,
+                                                     @Param("messageType") Channel messageType,
                                                      @Param("modifiedBy") String modifiedBy);
 
-    List<TemplateMaster> findAllByTemplateNameAndMessageTypeAndIsActive(String templateName, String messageType, Boolean isActive);
+    List<TemplateMaster> findAllByTemplateNameAndMessageTypeAndIsActive(String templateName, Channel messageType, Boolean isActive);
 }
