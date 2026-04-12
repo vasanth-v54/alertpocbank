@@ -1,22 +1,21 @@
-package com.template.controller;
+package com.template.service;
 
 import com.template.api.ApiApiDelegate;
 import com.template.api.model.TemplateAuditDto;
 import com.template.entity.TemplateAudit;
 import com.template.mapper.AuditMapper;
-import com.template.service.TemplateAuditService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-public class ApiApiDelegateImpl implements ApiApiDelegate {
+public class TemplateApiDelegateService implements ApiApiDelegate {
 
     private final TemplateAuditService templateAuditService;
     private final AuditMapper auditMapper;
 
-    public ApiApiDelegateImpl(TemplateAuditService templateAuditService, AuditMapper auditMapper) {
+    public TemplateApiDelegateService(TemplateAuditService templateAuditService, AuditMapper auditMapper) {
         this.templateAuditService = templateAuditService;
         this.auditMapper = auditMapper;
     }

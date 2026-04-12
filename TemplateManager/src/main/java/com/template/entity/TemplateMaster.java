@@ -22,7 +22,7 @@ public class TemplateMaster {
 
   @Enumerated(EnumType.STRING)
 	@Column(name = "messageType", nullable = false)
-	private String messageType;
+	private Channel messageType;
 
 	@Column(name = "version", nullable = false)
 	private String version;

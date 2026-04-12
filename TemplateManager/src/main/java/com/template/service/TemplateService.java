@@ -35,7 +35,7 @@ public class TemplateService {
 
         DXP_Status requestedStatus = templateToggleStatusRequestDTO.getStatus();
 
-        if ("SMS".equalsIgnoreCase(template.getMessageType())) {
+        if (template.getMessageType() == TemplateMaster.Channel.SMS) {
             if (requestedStatus == DXP_Status.ACTIVE) {
                 activateTemplateIfMessageTypeIsSMS(template, templateToggleStatusRequestDTO);
             } else {
@@ -43,7 +43,7 @@ public class TemplateService {
                         templateToggleStatusRequestDTO);
             }
 
-        } else if ("EMAIL".equalsIgnoreCase(template.getMessageType())) {
+        } else if (template.getMessageType() == TemplateMaster.Channel.EMAIL) {
 
             if (requestedStatus == DXP_Status.ACTIVE) {
                 activateTemplateIfMessageTypeIsEMAIL(template, templateToggleStatusRequestDTO);
@@ -52,7 +52,7 @@ public class TemplateService {
                         templateToggleStatusRequestDTO);
             }
 
-        } else if ("BOTH".equalsIgnoreCase(template.getMessageType())) {
+        } else if (template.getMessageType() == TemplateMaster.Channel.BOTH) {
             if (requestedStatus == DXP_Status.ACTIVE){
                 activateTemplateIfMessageTypeIsBOTH(id, template, templateToggleStatusRequestDTO);
             } else {
@@ -128,7 +128,7 @@ public class TemplateService {
     @Transactional
     public int activateTemplateIfMessageTypeIsSMS(TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
         // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "SMS", dto.getPerformedBy());
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), TemplateMaster.Channel.SMS, dto.getPerformedBy());
 
         int updatedRowsInSMS = smsTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInTemplateMaster = templateMasterRepository.activateById(templateToActivate.getId(), dto.getPerformedBy());
@@ -139,7 +139,7 @@ public class TemplateService {
     @Transactional
     public int activateTemplateIfMessageTypeIsEMAIL(TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
         // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "EMAIL", dto.getPerformedBy());
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), TemplateMaster.Channel.EMAIL, dto.getPerformedBy());
 
         int updatedRowsInEmail = emailTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
         int updatedRowsInTemplateMaster = templateMasterRepository.activateById(templateToActivate.getId(), dto.getPerformedBy());
@@ -149,7 +149,7 @@ public class TemplateService {
     @Transactional
     public int activateTemplateIfMessageTypeIsBOTH(Long id, TemplateMaster templateToActivate, TemplateToggleStatusRequestDTO dto) {
         // Sweep: Deactivate any other active versions
-        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), "BOTH", dto.getPerformedBy());
+        deactivateOtherActiveVersions(templateToActivate.getTemplateName(), TemplateMaster.Channel.BOTH, dto.getPerformedBy());
 
 
         int updatedRawsInSMS = smsTemplateRepository.activateTemplate(templateToActivate.getTemplateName());
@@ -176,7 +176,7 @@ public class TemplateService {
     }
 
 
-    private void deactivateOtherActiveVersions(String templateName, String messageType, String performedBy) {
+    private void deactivateOtherActiveVersions(String templateName, TemplateMaster.Channel messageType, String performedBy) {
         List<TemplateMaster> actives = templateMasterRepository.findAllByTemplateNameAndMessageTypeAndIsActive(
                 templateName, messageType, true);
         for (TemplateMaster active : actives) {
@@ -185,11 +185,11 @@ public class TemplateService {
             active.setModifiedDate(LocalDateTime.now());
             templateMasterRepository.save(active);
 
-            if ("SMS".equalsIgnoreCase(messageType)) {
+            if (messageType == TemplateMaster.Channel.SMS) {
                 smsTemplateRepository.deactivateTemplate(active.getTemplateName());
-            } else if ("EMAIL".equalsIgnoreCase(messageType)) {
+            } else if (messageType == TemplateMaster.Channel.EMAIL) {
                 emailTemplateRepository.deactivateTemplate(active.getTemplateName());
-            } else if ("BOTH".equalsIgnoreCase(messageType)){
+            } else if (messageType == TemplateMaster.Channel.BOTH){
                 smsTemplateRepository.deactivateTemplate(active.getTemplateName());
                 emailTemplateRepository.deactivateTemplate(active.getTemplateName());
             }
@@ -203,7 +203,7 @@ public class TemplateService {
 
         String nextVersion = incrementVersion(current.getVersion());
 
-        if ("SMS".equalsIgnoreCase(current.getMessageType())) {
+        if (current.getMessageType() == TemplateMaster.Channel.SMS) {
             SmsTemplate oldSms = smsTemplateRepository.findByTemplateName(current.getTemplateName())
                     .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));
 
@@ -219,7 +219,7 @@ public class TemplateService {
 
             smsTemplateRepository.deactivateTemplate(oldSms.getTemplateName());
 
-        } else if ("EMAIL".equalsIgnoreCase(current.getMessageType())) {
+        } else if (current.getMessageType() == TemplateMaster.Channel.EMAIL) {
             EmailTemplate oldEmail = emailTemplateRepository.findByTemplateName(current.getTemplateName())
                     .orElseThrow(() -> new RuntimeException("Email Template not found with name: " + current.getTemplateName()));
 
@@ -234,7 +234,7 @@ public class TemplateService {
 
             emailTemplateRepository.deactivateTemplate(oldEmail.getTemplateName());
 
-        } else if ("BOTH".equalsIgnoreCase(current.getMessageType())) {
+        } else if (current.getMessageType() == TemplateMaster.Channel.BOTH) {
 
             SmsTemplate oldSms = smsTemplateRepository.findByTemplateName(current.getTemplateName())
                     .orElseThrow(() -> new RuntimeException("SMS Template not found with name: " + current.getTemplateName()));

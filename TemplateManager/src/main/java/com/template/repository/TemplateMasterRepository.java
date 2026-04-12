@@ -47,8 +47,8 @@ public interface TemplateMasterRepository extends JpaRepository<TemplateMaster, 
       AND t.isActive = true
 """)
     int deactivateOthersByTemplateNameAndMessageType(@Param("templateName") String templateName,
-                                                     @Param("messageType") String messageType,
+                                                     @Param("messageType") TemplateMaster.Channel messageType,
                                                      @Param("modifiedBy") String modifiedBy);
 
-    List<TemplateMaster> findAllByTemplateNameAndMessageTypeAndIsActive(String templateName, String messageType, Boolean isActive);
+    List<TemplateMaster> findAllByTemplateNameAndMessageTypeAndIsActive(String templateName, TemplateMaster.Channel messageType, Boolean isActive);
 }
