@@ -397,18 +397,17 @@ public class TemplateService {
 
 
     //BOTH RESPONSE
-
     private TemplateDetailResponseDTO mapBothResponse(List<TemplateMaster> list) {
 
         TemplateDetailResponseDTO res = new TemplateDetailResponseDTO();
 
-        // 🔹 Get latest SMS
+        //  Get latest SMS
         TemplateMaster latestSms = list.stream()
                 .filter(t -> containsKey(t.getHeaders(), "headers_sms"))
                 .max(Comparator.comparing(this::getTime))
                 .orElse(null);
 
-        // 🔹 Get latest EMAIL
+        //  Get latest EMAIL
         TemplateMaster latestEmail = list.stream()
                 .filter(t -> containsKey(t.getHeaders(), "headers_email"))
                 .max(Comparator.comparing(this::getTime))
@@ -488,7 +487,6 @@ public class TemplateService {
     }
 
 
-    //HELPERS
     private boolean containsKey(String json, String key) {
         return json != null && json.contains(key);
     }
@@ -665,26 +663,109 @@ public class TemplateService {
             return Collections.emptyList();
         }
 
-        //Sort latest first (optional but recommended)
-        list.sort(Comparator.comparing(this::getTime).reversed());
+        Map<String, List<TemplateMaster>> grouped =
+                list.stream().collect(Collectors.groupingBy(TemplateMaster::getTemplateName));
 
         List<FetchAllTemplatesResponseDTO> response = new ArrayList<>();
 
-        for (TemplateMaster entity : list) {
-            response.add(mapDirectRecord(entity));
+        for (Map.Entry<String, List<TemplateMaster>> entry : grouped.entrySet()) {
+
+            List<TemplateMaster> records = entry.getValue();
+
+            boolean hasBoth = records.stream()
+                    .anyMatch(t -> "BOTH".equalsIgnoreCase(t.getMessageType()));
+
+            boolean hasSms = records.stream()
+                    .anyMatch(t -> containsKey(t.getHeaders(), "headers_sms"));
+
+            boolean hasEmail = records.stream()
+                    .anyMatch(t -> containsKey(t.getHeaders(), "headers_email"));
+
+            if (hasBoth && hasSms && hasEmail) {
+
+                response.add(mapBothForFetchAll(records));
+
+            } else {
+
+                for (TemplateMaster entity : records) {
+                    response.add(mapDirectRecord(entity));
+                }
+            }
         }
 
         return response;
+    }
+
+    private FetchAllTemplatesResponseDTO mapBothForFetchAll(List<TemplateMaster> list) {
+
+        TemplateMaster latestSms = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_sms"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        TemplateMaster latestEmail = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_email"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        FetchAllTemplatesResponseDTO dto = new FetchAllTemplatesResponseDTO();
+
+        // ALWAYS JSON (WITH NULL SAFETY)
+        Map<String, String> nameMap = new HashMap<>();
+        nameMap.put("sms", latestSms != null ? latestSms.getTemplateName() : null);
+        nameMap.put("email", latestEmail != null ? latestEmail.getTemplateName() : null);
+
+        dto.setTemplateName(nameMap);
+        dto.setMsgType("BOTH");
+
+        Map<String, Object> alert = parseJson(
+                latestSms != null ? latestSms.getAlertConfig() : latestEmail.getAlertConfig()
+        );
+
+        if (alert != null) {
+            dto.setDomain((String) alert.get("domain"));
+            dto.setAlertName((String) alert.get("alertName"));
+            dto.setAlertType((String) alert.get("alertType"));
+            dto.setEventType((String) alert.get("eventType"));
+        }
+
+        if (latestSms != null) {
+            dto.setSmsTemplate(
+                    (String) getContent(parseJson(latestSms.getRawContent()), "sms", "raw")
+            );
+        }
+
+        if (latestEmail != null) {
+            dto.setEmailTemplate(
+                    (String) getContent(parseJson(latestEmail.getRawContent()), "email", "raw")
+            );
+        }
+
+        return dto;
     }
 
     private FetchAllTemplatesResponseDTO mapDirectRecord(TemplateMaster entity) {
 
         FetchAllTemplatesResponseDTO dto = new FetchAllTemplatesResponseDTO();
 
-        dto.setTemplateName(entity.getTemplateName());
+        // ALWAYS JSON
+        Map<String, String> nameMap = new HashMap<>();
+        nameMap.put("sms", null);
+        nameMap.put("email", null);
+
+        String type = entity.getMessageType() != null
+                ? entity.getMessageType().toLowerCase()
+                : "";
+
+        if ("sms".equals(type)) {
+            nameMap.put("sms", entity.getTemplateName());
+        } else if ("email".equals(type)) {
+            nameMap.put("email", entity.getTemplateName());
+        }
+
+        dto.setTemplateName(nameMap);
         dto.setMsgType(entity.getMessageType());
 
-        //Alert config
         Map<String, Object> alert = parseJson(entity.getAlertConfig());
 
         if (alert != null) {
@@ -694,33 +775,14 @@ public class TemplateService {
             dto.setEventType((String) alert.get("eventType"));
         }
 
-        //Type-based mapping
-        String type = entity.getMessageType() != null
-                ? entity.getMessageType().toLowerCase()
-                : "";
-
         if ("sms".equals(type)) {
             dto.setSmsTemplate(
                     (String) getContent(parseJson(entity.getRawContent()), "sms", "raw")
             );
-        }
-        else if ("email".equals(type)) {
+        } else if ("email".equals(type)) {
             dto.setEmailTemplate(
                     (String) getContent(parseJson(entity.getRawContent()), "email", "raw")
             );
-        }
-        else if ("both".equals(type)) {
-            // Handle BOTH row (check actual content)
-            Map<String, Object> raw = parseJson(entity.getRawContent());
-
-            if (raw != null) {
-                if (raw.containsKey("rawcontent_sms")) {
-                    dto.setSmsTemplate((String) raw.get("rawcontent_sms"));
-                }
-                if (raw.containsKey("rawcontent_email")) {
-                    dto.setEmailTemplate((String) raw.get("rawcontent_email"));
-                }
-            }
         }
 
         return dto;
