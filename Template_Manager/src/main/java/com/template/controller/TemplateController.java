@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/v1/api/templates")
 @RequiredArgsConstructor
 public class TemplateController {
