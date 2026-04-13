@@ -14,16 +14,16 @@ public class SmsTemplate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "TEMPLATE_NAME", nullable = false, unique = true)
+    @Column(name = "TEMPLATE_NAME")
     private String templateName;
 
     @Column(name = "TEMPLATE_BODY", columnDefinition = "json", nullable = false)
     private String templateBody;
 
-    @Column(name = "IS_ACTIVE", nullable = false)
+    @Column(name = "IS_ACTIVE")
     private Boolean active;
 
-    @Column(name = "DATE_CREATED", nullable = false)
+    @Column(name = "DATE_CREATED")
     private LocalDateTime dateCreated;
 
     @Column(name = "DATE_UPDATED")

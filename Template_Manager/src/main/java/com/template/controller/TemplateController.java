@@ -2,12 +2,14 @@ package com.template.controller;
 
 import com.template.dto.*;
 import com.template.service.TemplateService;
+import com.template.service.TemplateService1;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/api/templates")
@@ -15,12 +17,17 @@ import java.util.List;
 public class TemplateController {
 
     private final TemplateService templateService;
+    private final TemplateService1 service1;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<TemplateCreateData>> createTemplate(
-            @Valid @RequestBody TemplateCreateRequest request
-    ) throws Exception {
-        return ResponseEntity.status(201).body(templateService.createTemplate(request));
+    public ResponseEntity<?> createTemplate(@RequestBody TemplateRequest request) {
+
+        String msg = service1.createTemplate(request);
+
+        return ResponseEntity.status(201).body(Map.of(
+                "success", true,
+                "message", msg
+        ));
     }
 
     @GetMapping("/all")

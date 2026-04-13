@@ -14,10 +14,10 @@ public class EmailTemplate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "TEMPLATE_NAME", nullable = false, unique = true)
+    @Column(name = "TEMPLATE_NAME")
     private String templateName;
 
-    @Column(name = "TEMPLATE_BODY", columnDefinition = "json", nullable = false)
+    @Column(name = "TEMPLATE_BODY", columnDefinition = "json")
     private String templateBody;
 
     @Column(name = "IS_ACTIVE", nullable = false)
