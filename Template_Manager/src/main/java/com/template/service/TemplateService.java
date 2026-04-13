@@ -402,12 +402,13 @@ public class TemplateService {
 
         TemplateDetailResponseDTO res = new TemplateDetailResponseDTO();
 
-        //Pick latest per channel
+        // 🔹 Get latest SMS
         TemplateMaster latestSms = list.stream()
                 .filter(t -> containsKey(t.getHeaders(), "headers_sms"))
                 .max(Comparator.comparing(this::getTime))
                 .orElse(null);
 
+        // 🔹 Get latest EMAIL
         TemplateMaster latestEmail = list.stream()
                 .filter(t -> containsKey(t.getHeaders(), "headers_email"))
                 .max(Comparator.comparing(this::getTime))
@@ -417,65 +418,71 @@ public class TemplateService {
         res.setMessageType("BOTH");
         res.setVersion(list.get(0).getVersion());
 
-        // ================= ID (JSON) =================
+        // ================= ID =================
         Map<String, Object> idMap = new HashMap<>();
         if (latestSms != null) idMap.put("sms", latestSms.getId());
         if (latestEmail != null) idMap.put("email", latestEmail.getId());
         res.setId(idMap);
 
-        // ================= ALERT CONFIG =================
-        Map<String, Object> alertMap = new HashMap<>();
-        if (latestSms != null) alertMap.put("sms", parseJson(latestSms.getAlertConfig()));
-        if (latestEmail != null) alertMap.put("email", parseJson(latestEmail.getAlertConfig()));
-        res.setAlert_config(alertMap);
+        // ================= ALERT CONFIG (SINGLE) =================
+        if (latestSms != null) {
+            res.setAlert_config(parseJson(latestSms.getAlertConfig()));
+        } else if (latestEmail != null) {
+            res.setAlert_config(parseJson(latestEmail.getAlertConfig()));
+        }
 
         // ================= HEADERS =================
         Map<String, Object> headerMap = new HashMap<>();
         if (latestSms != null) {
-            headerMap.put("sms",
+            headerMap.put("headers_sms",
                     getSafe(parseJson(latestSms.getHeaders()), "sms", "headers_sms"));
         }
         if (latestEmail != null) {
-            headerMap.put("email",
+            headerMap.put("headers_email",
                     getSafe(parseJson(latestEmail.getHeaders()), "email", "headers_email"));
         }
         res.setHeaders(headerMap);
 
-        // ================= RAW =================
+        // ================= RAW CONTENT =================
         Map<String, Object> rawMap = new HashMap<>();
         if (latestSms != null) {
-            rawMap.put("sms",
+            rawMap.put("rawcontent_sms",
                     getContent(parseJson(latestSms.getRawContent()), "sms", "raw"));
         }
         if (latestEmail != null) {
-            rawMap.put("email",
+            rawMap.put("rawcontent_email",
                     getContent(parseJson(latestEmail.getRawContent()), "email", "raw"));
         }
         res.setRaw_content(rawMap);
 
-        // ================= INDEXED =================
+        // ================= INDEXED CONTENT =================
         Map<String, Object> indexMap = new HashMap<>();
         if (latestSms != null) {
-            indexMap.put("sms",
+            indexMap.put("indexed_content_sms",
                     getContent(parseJson(latestSms.getIndexedContent()), "sms", "indexed"));
         }
         if (latestEmail != null) {
-            indexMap.put("email",
+            indexMap.put("indexed_content_email",
                     getContent(parseJson(latestEmail.getIndexedContent()), "email", "indexed"));
         }
         res.setIndexed_content(indexMap);
 
-        // ================= PARAM =================
-        Map<String, Object> paramMapFinal = new HashMap<>();
+        // ================= PARAM MAPPING =================
+        Map<String, Object> paramMap = new HashMap<>();
         if (latestSms != null) {
-            paramMapFinal.put("sms",
+            paramMap.put("param_mapping_sms",
                     mapParams(parseJson(latestSms.getParamMapping())));
         }
         if (latestEmail != null) {
-            paramMapFinal.put("email",
+            paramMap.put("param_mapping_email",
                     mapParams(parseJson(latestEmail.getParamMapping())));
         }
-        res.setParam_mapping(paramMapFinal);
+        res.setParam_mapping(paramMap);
+
+        // ================= OPTIONAL FIELDS =================
+        res.setContentHash(null);
+        res.setExceptionReason(null);
+        res.setIsDuplicateallowed(null);
 
         return res;
     }
