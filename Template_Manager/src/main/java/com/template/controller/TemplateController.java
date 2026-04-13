@@ -30,6 +30,21 @@ public class TemplateController {
         ));
     }
 
+    @GetMapping("/{templateName}")
+    public ResponseEntity<ApiResponse<TemplateDetailResponseDTO>> getTemplateByName(
+            @PathVariable String templateName) {
+
+        TemplateDetailResponseDTO data = templateService.getTemplate(templateName);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Template fetched successfully",
+                        data
+                )
+        );
+    }
+
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<FetchAllTemplatesResponseDTO>>> fetchAllTemplates() {
 
