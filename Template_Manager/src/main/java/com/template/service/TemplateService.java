@@ -1,11 +1,10 @@
 package com.template.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.template.dto.ApiResponse;
-import com.template.dto.TemplateCreateData;
-import com.template.dto.TemplateCreateRequest;
+import com.template.dto.*;
 import com.template.entity.EmailTemplate;
 import com.template.entity.SmsTemplate;
 import com.template.entity.TemplateMaster;
@@ -21,8 +20,9 @@ import org.springframework.util.StringUtils;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -316,5 +316,406 @@ public class TemplateService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Unable to compute SHA-256", e);
         }
+    }
+
+
+    public TemplateDetailResponseDTO getTemplate(String templateName) {
+
+        List<TemplateMaster> list =
+                templateMasterRepository.findByTemplateNameAndIsActive(templateName, "1");
+
+        if (list == null || list.isEmpty()) {
+            throw new RuntimeException("Template not found");
+        }
+
+
+        boolean hasBoth = list.stream()
+                .anyMatch(t -> "BOTH".equalsIgnoreCase(t.getMessageType()));
+
+
+        if (hasBoth) {
+            return mapBothResponse(list);
+        }
+
+        TemplateMaster latest = list.stream()
+                .max(Comparator.comparing(this::getTime))
+                .orElseThrow(() -> new RuntimeException("No latest template found"));
+
+        return mapSingleResponse(latest);
+    }
+
+
+    //SINGLE RESPONSE
+    private TemplateDetailResponseDTO mapSingleResponse(TemplateMaster entity) {
+
+        TemplateDetailResponseDTO res = new TemplateDetailResponseDTO();
+
+        try {
+
+            String type = safeType(entity.getMessageType());
+
+            Map<String, Object> headers = parseJson(entity.getHeaders());
+            Map<String, Object> rawContent = parseJson(entity.getRawContent());
+            Map<String, Object> indexedContent = parseJson(entity.getIndexedContent());
+            Map<String, Object> paramMapping = parseJson(entity.getParamMapping());
+
+            res.setId(entity.getId());
+            res.setTemplate_name(entity.getTemplateName());
+            res.setMessageType(entity.getMessageType());
+            res.setVersion(entity.getVersion());
+            res.setAlert_config(parseJson(entity.getAlertConfig()));
+
+            Map<String, Object> headerMap = new HashMap<>();
+            headerMap.put("headers_" + type,
+                    headers != null ? getSafe(headers, type, "headers_" + type) : null);
+            res.setHeaders(headerMap);
+
+            Map<String, Object> rawMap = new HashMap<>();
+            rawMap.put("rawcontent_" + type,
+                    rawContent != null ? getContent(rawContent, type, "raw") : null);
+            res.setRaw_content(rawMap);
+
+            Map<String, Object> indexMap = new HashMap<>();
+            indexMap.put("indexed_content_" + type,
+                    indexedContent != null ? getContent(indexedContent, type, "indexed") : null);
+            res.setIndexed_content(indexMap);
+
+            Map<String, Object> paramMapFinal = new HashMap<>();
+            paramMapFinal.put("param_mapping_" + type, mapParams(paramMapping));
+            res.setParam_mapping(paramMapFinal);
+
+            res.setContentHash(entity.getContentHash());
+            res.setExceptionReason(entity.getExceptionReason());
+            res.setIsDuplicateallowed(entity.getDuplicateAllowed());
+
+            return res;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Mapping error: " + e.getMessage(), e);
+        }
+    }
+
+
+    //BOTH RESPONSE
+
+    private TemplateDetailResponseDTO mapBothResponse(List<TemplateMaster> list) {
+
+        TemplateDetailResponseDTO res = new TemplateDetailResponseDTO();
+
+        //Pick latest per channel
+        TemplateMaster latestSms = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_sms"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        TemplateMaster latestEmail = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_email"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        res.setTemplate_name(list.get(0).getTemplateName());
+        res.setMessageType("BOTH");
+        res.setVersion(list.get(0).getVersion());
+
+        // ================= ID (JSON) =================
+        Map<String, Object> idMap = new HashMap<>();
+        if (latestSms != null) idMap.put("sms", latestSms.getId());
+        if (latestEmail != null) idMap.put("email", latestEmail.getId());
+        res.setId(idMap);
+
+        // ================= ALERT CONFIG =================
+        Map<String, Object> alertMap = new HashMap<>();
+        if (latestSms != null) alertMap.put("sms", parseJson(latestSms.getAlertConfig()));
+        if (latestEmail != null) alertMap.put("email", parseJson(latestEmail.getAlertConfig()));
+        res.setAlert_config(alertMap);
+
+        // ================= HEADERS =================
+        Map<String, Object> headerMap = new HashMap<>();
+        if (latestSms != null) {
+            headerMap.put("sms",
+                    getSafe(parseJson(latestSms.getHeaders()), "sms", "headers_sms"));
+        }
+        if (latestEmail != null) {
+            headerMap.put("email",
+                    getSafe(parseJson(latestEmail.getHeaders()), "email", "headers_email"));
+        }
+        res.setHeaders(headerMap);
+
+        // ================= RAW =================
+        Map<String, Object> rawMap = new HashMap<>();
+        if (latestSms != null) {
+            rawMap.put("sms",
+                    getContent(parseJson(latestSms.getRawContent()), "sms", "raw"));
+        }
+        if (latestEmail != null) {
+            rawMap.put("email",
+                    getContent(parseJson(latestEmail.getRawContent()), "email", "raw"));
+        }
+        res.setRaw_content(rawMap);
+
+        // ================= INDEXED =================
+        Map<String, Object> indexMap = new HashMap<>();
+        if (latestSms != null) {
+            indexMap.put("sms",
+                    getContent(parseJson(latestSms.getIndexedContent()), "sms", "indexed"));
+        }
+        if (latestEmail != null) {
+            indexMap.put("email",
+                    getContent(parseJson(latestEmail.getIndexedContent()), "email", "indexed"));
+        }
+        res.setIndexed_content(indexMap);
+
+        // ================= PARAM =================
+        Map<String, Object> paramMapFinal = new HashMap<>();
+        if (latestSms != null) {
+            paramMapFinal.put("sms",
+                    mapParams(parseJson(latestSms.getParamMapping())));
+        }
+        if (latestEmail != null) {
+            paramMapFinal.put("email",
+                    mapParams(parseJson(latestEmail.getParamMapping())));
+        }
+        res.setParam_mapping(paramMapFinal);
+
+        return res;
+    }
+
+
+    //HELPERS
+    private boolean containsKey(String json, String key) {
+        return json != null && json.contains(key);
+    }
+
+    private String safeType(String type) {
+        return type != null ? type.toLowerCase() : "";
+    }
+
+    private LocalDateTime getTime(TemplateMaster t) {
+        return t.getModifiedDate() != null
+                ? t.getModifiedDate()
+                : t.getCreatedDate();
+    }
+
+    private Map<String, Object> parseJson(String json) {
+        try {
+            if (json == null) return null;
+            return objectMapper.readValue(json, new TypeReference<>() {
+            });
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Object getSafe(Map<String, Object> map, String key1, String key2) {
+        if (map == null) return null;
+        Object val = map.get(key1);
+        if (val == null) val = map.get(key2);
+        return val;
+    }
+
+    private Object getContent(Map<String, Object> map, String type, String contentType) {
+
+        if (map == null) return null;
+
+        if ("sms".equals(type)) {
+            if ("raw".equals(contentType)) {
+                return map.getOrDefault("smsContent", map.get("rawcontent_sms"));
+            }
+            if ("indexed".equals(contentType)) {
+                return map.getOrDefault("smsContent", map.get("indexed_content_sms"));
+            }
+        } else {
+            if ("raw".equals(contentType)) {
+                return map.getOrDefault("emailContent", map.get("rawcontent_email"));
+            }
+            if ("indexed".equals(contentType)) {
+                return map.getOrDefault("emailContent", map.get("indexed_content_email"));
+            }
+        }
+
+        return null;
+    }
+
+    private List<Map<String, Object>> mapParams(Map<String, Object> paramMap) {
+
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (paramMap == null) return list;
+
+        boolean isOldFormat = paramMap.keySet().stream().allMatch(k -> k.matches("\\d+"));
+
+        if (isOldFormat) {
+            paramMap.forEach((k, v) -> {
+                try {
+                    Map<String, Object> obj = new HashMap<>();
+                    obj.put("seq", Integer.parseInt(k));
+                    obj.put("parameter", v);
+                    obj.put("mappingType", "DIRECT");
+                    obj.put("augExpression", null);
+                    list.add(obj);
+                } catch (Exception ignored) {
+                }
+            });
+        } else {
+            for (Object value : paramMap.values()) {
+                if (value instanceof List<?>) {
+                    for (Object item : (List<?>) value) {
+                        if (item instanceof Map<?, ?> m) {
+                            list.add(new HashMap<>((Map<String, Object>) m));
+                        }
+                    }
+                }
+            }
+        }
+
+        list.sort(Comparator.comparingInt(o -> (int) o.get("seq")));
+        return list;
+    }
+    
+
+    private FetchAllTemplatesResponseDTO mapBothSummary(List<TemplateMaster> list) {
+
+        TemplateMaster latestSms = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_sms"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        TemplateMaster latestEmail = list.stream()
+                .filter(t -> containsKey(t.getHeaders(), "headers_email"))
+                .max(Comparator.comparing(this::getTime))
+                .orElse(null);
+
+        FetchAllTemplatesResponseDTO dto = new FetchAllTemplatesResponseDTO();
+
+        dto.setTemplateName(list.get(0).getTemplateName());
+        dto.setMsgType("BOTH");
+
+        Map<String, Object> alert = parseJson(
+                latestSms != null ? latestSms.getAlertConfig() : latestEmail.getAlertConfig()
+        );
+
+        if (alert != null) {
+            dto.setDomain((String) alert.get("domain"));
+            dto.setAlertName((String) alert.get("alertName"));
+            dto.setAlertType((String) alert.get("alertType"));
+            dto.setEventType((String) alert.get("eventType"));
+        }
+
+        if (latestSms != null) {
+            dto.setSmsTemplate(
+                    (String) getContent(parseJson(latestSms.getRawContent()), "sms", "raw")
+            );
+        }
+
+        if (latestEmail != null) {
+            dto.setEmailTemplate(
+                    (String) getContent(parseJson(latestEmail.getRawContent()), "email", "raw")
+            );
+        }
+
+        return dto;
+    }
+
+    private FetchAllTemplatesResponseDTO mapSingleSummary(List<TemplateMaster> list) {
+
+        TemplateMaster latest = list.stream()
+                .max(Comparator.comparing(this::getTime))
+                .orElseThrow();
+
+        FetchAllTemplatesResponseDTO dto = new FetchAllTemplatesResponseDTO();
+
+        dto.setTemplateName(latest.getTemplateName());
+        dto.setMsgType(latest.getMessageType());
+
+        Map<String, Object> alert = parseJson(latest.getAlertConfig());
+
+        if (alert != null) {
+            dto.setDomain((String) alert.get("domain"));
+            dto.setAlertName((String) alert.get("alertName"));
+            dto.setAlertType((String) alert.get("alertType"));
+            dto.setEventType((String) alert.get("eventType"));
+        }
+
+        String type = latest.getMessageType().toLowerCase();
+
+        if ("sms".equals(type)) {
+            dto.setSmsTemplate(
+                    (String) getContent(parseJson(latest.getRawContent()), "sms", "raw")
+            );
+        } else {
+            dto.setEmailTemplate(
+                    (String) getContent(parseJson(latest.getRawContent()), "email", "raw")
+            );
+        }
+
+        return dto;
+    }
+
+    public List<FetchAllTemplatesResponseDTO> fetchAllTemplates() {
+
+        List<TemplateMaster> list = templateMasterRepository.findByIsActive("1");
+
+        if (list == null || list.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        //Sort latest first (optional but recommended)
+        list.sort(Comparator.comparing(this::getTime).reversed());
+
+        List<FetchAllTemplatesResponseDTO> response = new ArrayList<>();
+
+        for (TemplateMaster entity : list) {
+            response.add(mapDirectRecord(entity));
+        }
+
+        return response;
+    }
+
+    private FetchAllTemplatesResponseDTO mapDirectRecord(TemplateMaster entity) {
+
+        FetchAllTemplatesResponseDTO dto = new FetchAllTemplatesResponseDTO();
+
+        dto.setTemplateName(entity.getTemplateName());
+        dto.setMsgType(entity.getMessageType());
+
+        //Alert config
+        Map<String, Object> alert = parseJson(entity.getAlertConfig());
+
+        if (alert != null) {
+            dto.setDomain((String) alert.get("domain"));
+            dto.setAlertName((String) alert.get("alertName"));
+            dto.setAlertType((String) alert.get("alertType"));
+            dto.setEventType((String) alert.get("eventType"));
+        }
+
+        //Type-based mapping
+        String type = entity.getMessageType() != null
+                ? entity.getMessageType().toLowerCase()
+                : "";
+
+        if ("sms".equals(type)) {
+            dto.setSmsTemplate(
+                    (String) getContent(parseJson(entity.getRawContent()), "sms", "raw")
+            );
+        }
+        else if ("email".equals(type)) {
+            dto.setEmailTemplate(
+                    (String) getContent(parseJson(entity.getRawContent()), "email", "raw")
+            );
+        }
+        else if ("both".equals(type)) {
+            // Handle BOTH row (check actual content)
+            Map<String, Object> raw = parseJson(entity.getRawContent());
+
+            if (raw != null) {
+                if (raw.containsKey("rawcontent_sms")) {
+                    dto.setSmsTemplate((String) raw.get("rawcontent_sms"));
+                }
+                if (raw.containsKey("rawcontent_email")) {
+                    dto.setEmailTemplate((String) raw.get("rawcontent_email"));
+                }
+            }
+        }
+
+        return dto;
     }
 }
