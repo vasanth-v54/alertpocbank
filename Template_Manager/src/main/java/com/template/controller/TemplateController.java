@@ -57,7 +57,6 @@ public class TemplateController {
                 )
         );
     }
-/*
 
     @PostMapping("/toggle-status")
     public ResponseEntity<TemplateToggleStatusResponseDTO> toggleTemplateStatus(
@@ -72,5 +71,4 @@ public class TemplateController {
         TemplateUpdateResponseDTO response = templateService.updateTemplate(templateUpdateRequestDTO);
         return ResponseEntity.ok(response);
     }
-*/
 }
