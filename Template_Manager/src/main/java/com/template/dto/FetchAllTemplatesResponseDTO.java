@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class FetchAllTemplatesResponseDTO {
 
-    private String templateName;
+    private Object templateName;
 
     private String domain;
     private String alertName;

@@ -2,8 +2,6 @@ package com.template.controller;
 
 import com.template.dto.*;
 import com.template.service.TemplateService;
-import com.template.service.TemplateService1;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,12 +16,11 @@ import java.util.Map;
 public class TemplateController {
 
     private final TemplateService templateService;
-    private final TemplateService1 service1;
 
     @PostMapping
     public ResponseEntity<?> createTemplate(@RequestBody TemplateRequest request) {
 
-        String msg = service1.createTemplate(request);
+        String msg = templateService.createTemplate(request);
 
         return ResponseEntity.status(201).body(Map.of(
                 "success", true,
