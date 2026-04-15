@@ -2,6 +2,7 @@ package com.template.controller;
 
 import com.template.dto.*;
 import com.template.service.TemplateService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -56,19 +57,20 @@ public class TemplateController {
                 )
         );
     }
+/*
 
     @PostMapping("/toggle-status")
     public ResponseEntity<TemplateToggleStatusResponseDTO> toggleTemplateStatus(
             @Valid @RequestBody TemplateToggleStatusRequestDTO templateToggleStatusRequestDTO) {
-        TemplateToggleStatusResponseDTO response = service1.toggleTemplateStatus(templateToggleStatusRequestDTO);
+        TemplateToggleStatusResponseDTO response = templateService.toggleTemplateStatus(templateToggleStatusRequestDTO);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/edit-template")
     public ResponseEntity<TemplateUpdateResponseDTO> updateTemplate(
             @Valid @RequestBody TemplateUpdateRequestDTO templateUpdateRequestDTO) {
-        TemplateUpdateResponseDTO response = service1.updateTemplate(templateUpdateRequestDTO);
+        TemplateUpdateResponseDTO response = templateService.updateTemplate(templateUpdateRequestDTO);
         return ResponseEntity.ok(response);
     }
-
+*/
 }
