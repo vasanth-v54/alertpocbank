@@ -7,13 +7,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 @Entity
-@Table(
-        name = "template_master",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_template",
-                columnNames = {"template_name", "message_type", "is_active"}
-        )
-)
+@Table(name = "template_master")
 @Data
 public class TemplateMaster {
 
