@@ -5,6 +5,8 @@ import com.azure.messaging.eventhubs.checkpointstore.blob.*;
 import com.azure.messaging.eventhubs.models.ErrorContext;
 import com.azure.messaging.eventhubs.models.EventContext;
 import com.azure.storage.blob.*;
+import com.consumer.service.LdgApiService;
+import com.consumer.service.PayloadAuditService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,17 @@ public class EventHubConfig {
     
     private static final Logger auditLogger =
             LoggerFactory.getLogger("AUDIT_LOGGER");
+
+    private final PayloadAuditService payloadAuditService;
+
+    private final LdgApiService ldgApiService;
+
+    public EventHubConfig(PayloadAuditService payloadAuditService,
+                      LdgApiService ldgApiService) {
+        this.payloadAuditService = payloadAuditService;
+        this.ldgApiService = ldgApiService;
+    }
+
     @Bean
     public EventProcessorClient processorClient() {
 
@@ -54,14 +67,32 @@ public class EventHubConfig {
 
         String payload = context.getEventData().getBodyAsString();
 
+        Integer partition = null;
+        try {
+            partition = Integer.parseInt(
+                    context.getPartitionContext().getPartitionId()
+            );
+        } catch (Exception ignored) {}
+
+        Long offset = context.getEventData().getOffset();
+        Long sequence = context.getEventData().getSequenceNumber();
+
         auditLogger.info("\n=======================================");
         auditLogger.info("📥 EVENT RECEIVED");
-        auditLogger.info("Partition  : " + context.getPartitionContext().getPartitionId());
-        auditLogger.info("Offset     : " + context.getEventData().getOffset());
-        auditLogger.info("Sequence   : " + context.getEventData().getSequenceNumber());
+        auditLogger.info("Partition  : " + partition);
+        auditLogger.info("Offset     : " + offset);
+        auditLogger.info("Sequence   : " + sequence);
         auditLogger.info("Payload    : " + payload);
         auditLogger.info("=======================================\n");
 
+        // ✅ SAVE TO DB
+        try {
+            payloadAuditService.saveAudit(payload, partition, offset, sequence);
+        } catch (Exception e) {
+            auditLogger.error("❌ DB SAVE FAILED", e);
+        }
+
+        ldgApiService.callLdgApi(payload);
         // checkpoint (VERY IMPORTANT)
         context.updateCheckpoint();
     }
