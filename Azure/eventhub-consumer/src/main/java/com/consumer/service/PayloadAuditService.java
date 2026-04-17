@@ -15,14 +15,14 @@ public class PayloadAuditService {
         this.repository = repository;
     }
 
-    public void saveAudit(String payload, Integer partition, Long offset, Long sequence) {
+    public void saveAudit(String payload, Integer partition, Long offset, Long sequence,String Status) {
 
         EwbPayloadAuditMtb audit = new EwbPayloadAuditMtb();
         audit.setPayload(payload);
         audit.setPartitionId(partition);
         audit.setOffsetValue(offset);
         audit.setSequence(sequence != null ? String.valueOf(sequence) : null);
-        audit.setStatus("RECEIVED");
+        audit.setStatus(Status);
         audit.setCreatedBy("CONSUMER_MS");
         audit.setCreatedOn(LocalDateTime.now());
 

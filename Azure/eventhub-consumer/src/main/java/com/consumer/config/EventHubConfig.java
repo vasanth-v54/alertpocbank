@@ -5,14 +5,22 @@ import com.azure.messaging.eventhubs.checkpointstore.blob.*;
 import com.azure.messaging.eventhubs.models.ErrorContext;
 import com.azure.messaging.eventhubs.models.EventContext;
 import com.azure.storage.blob.*;
+import com.consumer.service.ConfigService;
 import com.consumer.service.LdgApiService;
 import com.consumer.service.PayloadAuditService;
+
+
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.consumer.util.JsonSearchUtil;
 
 @Configuration
 public class EventHubConfig {
@@ -39,10 +47,15 @@ public class EventHubConfig {
 
     private final LdgApiService ldgApiService;
 
+    private final ConfigService configService;
+
+    private static final Logger log = LoggerFactory.getLogger(EventHubConfig.class);
+
     public EventHubConfig(PayloadAuditService payloadAuditService,
-                      LdgApiService ldgApiService) {
+                      LdgApiService ldgApiService,ConfigService configService) {
         this.payloadAuditService = payloadAuditService;
         this.ldgApiService = ldgApiService;
+        this.configService=configService;
     }
 
     @Bean
@@ -87,17 +100,50 @@ public class EventHubConfig {
 
         // ✅ SAVE TO DB
         try {
-            payloadAuditService.saveAudit(payload, partition, offset, sequence);
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(payload);
+
+            // Get eventType
+            String eventType = JsonSearchUtil.findFirstValue(root, "eventType");
+            log.info("eventType :: "+eventType);
+            // Get application
+            String application = JsonSearchUtil.findFirstValue(root, "application");
+            
+            //  Fetch config
+            List<String> allowedEvents =
+                    configService.getValuesAsList("LDG_ALLOWED_EVENT_TYPE");
+            log.info("allowedEvents :: "+allowedEvents);
+            String allowedApps =
+                    configService.getValue("LDG_ALLOWED_APPLICATION");
+            log.info("application :: "+application);
+            log.info("allowedApps :: "+allowedApps);
+            boolean allowedApplicationCheck=application.equalsIgnoreCase(allowedApps);
+            boolean allowedEventTypeCheck=isAllowed(eventType, allowedEvents);
+            log.info("allowedApplicationCheck :: "+allowedApplicationCheck);
+            log.info("allowedEventTypeCheck :: "+allowedEventTypeCheck);
+            if(allowedApplicationCheck && allowedEventTypeCheck){
+                payloadAuditService.saveAudit(payload, partition, offset, sequence,"ACCEPTED");
+                // API CALL
+                ldgApiService.callLdgApi(payload);
+            }else{
+                payloadAuditService.saveAudit(payload, partition, offset, sequence,"REJECTED");
+            }
         } catch (Exception e) {
             auditLogger.error("❌ DB SAVE FAILED", e);
         }
 
-        ldgApiService.callLdgApi(payload);
+        
         // checkpoint (VERY IMPORTANT)
         context.updateCheckpoint();
     }
 
     private void processError(ErrorContext errorContext) {
         System.err.println("ERROR: " + errorContext.getThrowable());
+    }
+
+    private boolean isAllowed(String value, List<String> allowedList) {
+
+        if (value == null || allowedList == null) return false;
+            return allowedList.stream().anyMatch(v -> v.equalsIgnoreCase(value.trim()));
     }
 }
