@@ -1,9 +1,13 @@
 package com.consumer.service;
 
+
 import com.consumer.entity.EwbApiReqRespMtb;
 import com.consumer.entity.EwbApiUrlMtb;
 import com.consumer.repository.EwbApiReqRespRepository;
 import com.consumer.repository.EwbApiUrlRepository;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -21,6 +25,7 @@ public class LdgApiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    private static final Logger log = LoggerFactory.getLogger(LdgApiService.class);
     @Value("${ldg.api.token}")
     private String token;
 
@@ -88,6 +93,7 @@ public class LdgApiService {
                     ex.getMessage() + "\" }";
         }
 
+        log.info("response :: "+response);
         // 5️⃣ Save Req/Resp
         EwbApiReqRespMtb rr = new EwbApiReqRespMtb();
         rr.setApiId(apiId);

@@ -9,8 +9,9 @@ import com.consumer.service.ConfigService;
 import com.consumer.service.LdgApiService;
 import com.consumer.service.PayloadAuditService;
 
-
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,23 +106,48 @@ public class EventHubConfig {
 
             // Get eventType
             String eventType = JsonSearchUtil.findFirstValue(root, "eventType");
-            log.info("eventType :: "+eventType);
+           
             // Get application
             String application = JsonSearchUtil.findFirstValue(root, "application");
             
+            // Get MessageType
+            String MessageType = JsonSearchUtil.findFirstValue(root, "MessageType");
+
+            // Get Alert Type
+            String AlertType = JsonSearchUtil.findFirstValue(root, "AlertType");
+
             //  Fetch config
             List<String> allowedEvents =
                     configService.getValuesAsList("LDG_ALLOWED_EVENT_TYPE");
+            log.info("eventType :: "+eventType);
             log.info("allowedEvents :: "+allowedEvents);
-            String allowedApps =
-                    configService.getValue("LDG_ALLOWED_APPLICATION");
+
+            List<String> allowedApps =
+                    configService.getValuesAsList("LDG_ALLOWED_APPLICATION");
             log.info("application :: "+application);
             log.info("allowedApps :: "+allowedApps);
-            boolean allowedApplicationCheck=application.equalsIgnoreCase(allowedApps);
+
+            List<String> allowedMessageType =
+                    configService.getValuesAsList("LDG_ALLOWED_MESSAGE_TYPE");
+            log.info("MessageType :: "+MessageType);
+            log.info("allowedMessageType :: "+allowedMessageType);
+
+            List<String> allowedAlertType =
+                    configService.getValuesAsList("LDG_ALERT_TYPE");
+            log.info("AlertType :: "+AlertType);
+            log.info("allowedAlertType :: "+allowedAlertType);
+
+            boolean allowedApplicationCheck=isAllowedApp(application,allowedApps);
             boolean allowedEventTypeCheck=isAllowed(eventType, allowedEvents);
+            boolean allowedMessageTypeCheck=isAllowed(MessageType, allowedMessageType);
+            boolean allowedAlertTypeCheck=isAllowed(AlertType, allowedAlertType); 
+
             log.info("allowedApplicationCheck :: "+allowedApplicationCheck);
             log.info("allowedEventTypeCheck :: "+allowedEventTypeCheck);
-            if(allowedApplicationCheck && allowedEventTypeCheck){
+            log.info("allowedMessageTypeCheck :: "+allowedMessageTypeCheck);
+            log.info("allowedAlertTypeCheck :: "+allowedAlertTypeCheck);
+
+            if(allowedApplicationCheck && allowedEventTypeCheck && allowedAlertTypeCheck && allowedMessageTypeCheck){
                 payloadAuditService.saveAudit(payload, partition, offset, sequence,"ACCEPTED");
                 // API CALL
                 ldgApiService.callLdgApi(payload);
@@ -138,12 +164,52 @@ public class EventHubConfig {
     }
 
     private void processError(ErrorContext errorContext) {
-        System.err.println("ERROR: " + errorContext.getThrowable());
+        log.error("ERROR: " + errorContext.getThrowable());
     }
 
     private boolean isAllowed(String value, List<String> allowedList) {
 
         if (value == null || allowedList == null) return false;
-            return allowedList.stream().anyMatch(v -> v.equalsIgnoreCase(value.trim()));
+
+        String input = normalize(value);
+
+        return allowedList.stream()
+                .filter(Objects::nonNull)
+                .flatMap(v -> Arrays.stream(v.split("\\|")))
+                .map(this::normalize)
+                .anyMatch(v -> v.equalsIgnoreCase(input));
     }
+
+    private String normalize(String str) {
+        return str.trim().replaceAll("\\s*,\\s*", ",");
+    }
+
+    private boolean isAllowedApp(String value, List<String> allowedList) {
+
+    if (value == null || allowedList == null) return false;
+
+    String input = normalize(value);
+
+    for (String item : allowedList) {
+
+        if (item == null) continue;
+
+        String[] parts = item.split("\\|");
+
+        for (String part : parts) {
+
+            String normalizedPart = normalize(part);
+
+            // DEBUG LOG (very important)
+            log.info("INPUT  : [" + input + "]");
+            log.info("ALLOWED: [" + normalizedPart + "]");
+
+            if (normalizedPart.equalsIgnoreCase(input)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 }

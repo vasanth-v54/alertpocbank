@@ -24,17 +24,24 @@ public class ConfigService {
                 .orElse(null);
     }
 
-    // 🔹 Get comma-separated values as list
+    /**
+     * 🔹 Get pipe-separated values as list
+     * IMPORTANT:
+     * - Do NOT split by comma (,)
+     * - Each entry is a FULL composite value: APP_CODE,EVENT_TYPE
+     * - Split ONLY by pipe (|)
+     */
     public List<String> getValuesAsList(String key) {
 
         String value = getValue(key);
 
-        if (value == null || value.isEmpty()) {
+        if (value == null || value.isBlank()) {
             return Collections.emptyList();
         }
 
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
+        return Arrays.stream(value.split("\\|"))   // ✅ correct delimiter
+                .map(String::trim)                 // clean spaces
+                .filter(v -> !v.isEmpty())         // avoid empty values
                 .toList();
     }
 }
