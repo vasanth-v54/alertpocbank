@@ -58,14 +58,14 @@ public class TemplateController {
         );
     }
 
-    @PostMapping("/toggle-status")
+    @PatchMapping("/toggle-status")
     public ResponseEntity<TemplateToggleStatusResponseDTO> toggleTemplateStatus(
             @Valid @RequestBody TemplateToggleStatusRequestDTO templateToggleStatusRequestDTO) {
         TemplateToggleStatusResponseDTO response = templateService.toggleTemplateStatus(templateToggleStatusRequestDTO);
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/edit-template")
+    @PutMapping("/edit-template")
     public ResponseEntity<TemplateUpdateResponseDTO> updateTemplate(
             @Valid @RequestBody TemplateUpdateRequestDTO templateUpdateRequestDTO) {
         TemplateUpdateResponseDTO response = templateService.updateTemplate(templateUpdateRequestDTO);

@@ -684,12 +684,34 @@ public class TemplateService {
 
     @Transactional
     public TemplateToggleStatusResponseDTO toggleTemplateStatus(TemplateToggleStatusRequestDTO dto) {
-        // Business logic: Find by template_name, version and isActive instead of ID
-        String baseName = dto.getTemplate_name().getSms() != null ?
-                dto.getTemplate_name().getSms() : dto.getTemplate_name().getEmail();
+        boolean hasSms = dto.getTemplate_name() != null && dto.getTemplate_name().getSms() != null;
+        boolean hasEmail = dto.getTemplate_name() != null && dto.getTemplate_name().getEmail() != null;
+        
+        Long id = null;
+
+        if (hasSms) {
+            id = toggleSingle(dto.getTemplate_name().getSms(), dto, "SMS");
+        }
+        if (hasEmail) {
+            Long emailId = toggleSingle(dto.getTemplate_name().getEmail(), dto, "EMAIL");
+            if (id == null) id = emailId;
+        }
+
+        if (id == null) {
+            throw new ResourceNotFoundException("Active template not found with provided version.");
+        }
+
+        return TemplateToggleStatusResponseDTO.builder()
+                .success(true)
+                .id(id)
+                .newStatus("INACTIVE")
+                .build();
+    }
+
+    private Long toggleSingle(String providedName, TemplateToggleStatusRequestDTO dto, String channelType) {
+        String baseName = getBaseName(providedName);
         String fullSearchName = baseName + "_v" + dto.getVersion();
 
-        // Try versioned name first (e.g. mytemplate_v1.0.0), then fall back to plain name (e.g. mytemplate)
         Optional<TemplateMaster> currentOpt = masterRepo.findByTemplateNameAndVersionAndIsActive(
                 fullSearchName, dto.getVersion(), "1");
         if (currentOpt.isEmpty()) {
@@ -697,21 +719,17 @@ public class TemplateService {
                     baseName, dto.getVersion(), "1");
         }
 
-        TemplateMaster current = currentOpt
-                .orElseThrow(() -> new ResourceNotFoundException("Active template not found with name: " +
-                        baseName + " (or " + fullSearchName + ") and version: " + dto.getVersion()));
+        if (currentOpt.isEmpty()) return null;
+        TemplateMaster current = currentOpt.get();
 
-        // Transition: ACTIVE -> INACTIVE only
         if (dto.getStatus() != DXP_Status.INACTIVE) {
             throw new RuntimeException("Invalid target status. Only ACTIVE -> INACTIVE transition is allowed.");
         }
 
-        // Versioning: increment last digit for status toggle
         String nextVersion = incrementPatchVersion(current.getVersion());
         String nextFullName = baseName + "_v" + nextVersion;
         String oldFullName = current.getTemplateName();
 
-        // Update TemplateMaster (Natural key identity change)
         current.setIsActive("0");
         current.setVersion(nextVersion);
         current.setTemplateName(nextFullName);
@@ -719,52 +737,66 @@ public class TemplateService {
         current.setModifiedDate(LocalDateTime.now());
         masterRepo.save(current);
 
-        // Update Channel Tables
-        if ("SMS".equalsIgnoreCase(current.getMessageType()) || "BOTH".equalsIgnoreCase(current.getMessageType())) {
-            updateChannelTemplate(oldFullName, nextFullName, false, "SMS");
-        }
-        if ("EMAIL".equalsIgnoreCase(current.getMessageType()) || "BOTH".equalsIgnoreCase(current.getMessageType())) {
-            updateChannelTemplate(oldFullName, nextFullName, false, "EMAIL");
-        }
-
-        return TemplateToggleStatusResponseDTO.builder()
-                .success(true)
-                .id(current.getId())
-                .newStatus("INACTIVE")
-                .build();
+        updateChannelTemplate(oldFullName, nextFullName, false, channelType);
+        return current.getId();
     }
 
     @Transactional
     public TemplateUpdateResponseDTO updateTemplate(TemplateUpdateRequestDTO dto) {
-        // Find previous version to get missing data
-        String smsName = dto.getTemplate_name() != null ? dto.getTemplate_name().getSms() : null;
-        String emailName = dto.getTemplate_name() != null ? dto.getTemplate_name().getEmail() : null;
-        String baseName = getBaseName(smsName != null ? smsName : emailName);
+        String msgType = dto.getMessageType() != null ? dto.getMessageType().toUpperCase() : "SMS";
+        String nextVersion = incrementMinorVersion(dto.getVersion() != null ? dto.getVersion() : "1.0.0");
+        String targetStatus = (dto.getStatus() != null) ?
+                ("INACTIVE".equalsIgnoreCase(dto.getStatus()) ? "0" : "1") : "1";
 
-        // Use business keys to find the version we are updating from
+        Long savedId = null;
+        String savedTemplateName = null;
+
+        if ("SMS".equals(msgType) || "BOTH".equals(msgType)) {
+            String smsName = dto.getTemplate_name() != null ? dto.getTemplate_name().getSms() : null;
+            if (smsName != null) {
+                TemplateMaster savedSms = updateSingle(dto, smsName, "SMS", nextVersion, targetStatus);
+                savedId = savedSms.getId();
+                savedTemplateName = savedSms.getTemplateName();
+            }
+        }
+
+        if ("EMAIL".equals(msgType) || "BOTH".equals(msgType)) {
+            String emailName = dto.getTemplate_name() != null ? dto.getTemplate_name().getEmail() : null;
+            if (emailName != null) {
+                TemplateMaster savedEmail = updateSingle(dto, emailName, "EMAIL", nextVersion, targetStatus);
+                if (savedId == null) {
+                    savedId = savedEmail.getId();
+                    savedTemplateName = savedEmail.getTemplateName();
+                }
+            }
+        }
+
+        return TemplateUpdateResponseDTO.builder()
+                .success(true)
+                .id(savedId)
+                .templateId(savedTemplateName)
+                .version(nextVersion)
+                .status("1".equals(targetStatus) ? "ACTIVE" : "INACTIVE")
+                .message("Template version " + nextVersion + " created successfully")
+                .build();
+    }
+
+    private TemplateMaster updateSingle(TemplateUpdateRequestDTO dto, String providedName, String channelType, String nextVersion, String targetStatus) {
+        String baseName = getBaseName(providedName);
         String searchVersion = dto.getVersion();
         String searchFullName = baseName + "_v" + searchVersion;
 
-        // Try versioned name first (e.g. mytemplate_v1.0.0), then plain name (e.g. mytemplate)
         Optional<TemplateMaster> previousOpt = masterRepo.findByTemplateNameAndVersion(searchFullName, searchVersion);
         if (previousOpt.isEmpty()) {
             previousOpt = masterRepo.findByTemplateNameAndVersion(baseName, searchVersion);
         }
         if (previousOpt.isEmpty()) {
-            // Fallback: Find latest version of this template family
-            previousOpt = masterRepo.findByTemplateNameStartingWithAndMessageType(baseName, dto.getMessageType())
+            previousOpt = masterRepo.findByTemplateNameStartingWithAndMessageType(baseName, "BOTH".equals(dto.getMessageType()) ? "BOTH" : channelType)
                     .stream().max((t1, t2) -> compareVersions(t1.getVersion(), t2.getVersion()));
         }
 
         TemplateMaster previous = previousOpt.orElse(null);
 
-        // Logic 1: If we are changing status from active to inactive, update version
-        // Logic 2: Edits always increment middle value (1.0.0 -> 1.1.0)
-        String currentVersion = (previous != null) ? previous.getVersion() : (dto.getVersion() != null ? dto.getVersion() : "1.0.0");
-        String nextVersion = incrementMinorVersion(currentVersion);
-        String nextFullName = baseName + "_v" + nextVersion;
-
-        // Inactivate previous version if it was active
         if (previous != null && "1".equals(previous.getIsActive())) {
             String retiredVersion = incrementPatchVersion(previous.getVersion());
             String retiredFullName = baseName + "_v" + retiredVersion;
@@ -777,32 +809,38 @@ public class TemplateService {
             previous.setModifiedDate(LocalDateTime.now());
             masterRepo.save(previous);
 
-            // Update channel tables for the retired record
-            updateChannelTemplate(oldFullName, retiredFullName, false, previous.getMessageType());
+            updateChannelTemplate(oldFullName, retiredFullName, false, channelType);
         }
 
-        // Create New TemplateMaster Record (Targeting new version)
+        String nextFullName = baseName + "_v" + nextVersion;
         TemplateMaster nextVersionTemplate = new TemplateMaster();
         nextVersionTemplate.setTemplateName(nextFullName);
-        nextVersionTemplate.setMessageType(dto.getMessageType());
+        nextVersionTemplate.setMessageType("BOTH".equals(dto.getMessageType()) ? "BOTH" : dto.getMessageType());
         nextVersionTemplate.setVersion(nextVersion);
-
-        // Take status from DTO if provided, otherwise default to ACTIVE (1)
-        String targetStatus = (dto.getStatus() != null) ?
-                ("INACTIVE".equalsIgnoreCase(dto.getStatus()) ? "0" : "1") : "1";
         nextVersionTemplate.setIsActive(targetStatus);
 
-        // Populate dynamic fields
+        Map<String, Object> hMap = null, rMap = null, iMap = null, pMap = null;
+        try {
+            hMap = dto.getHeaders() instanceof Map ? (Map<String, Object>) dto.getHeaders() : parseJson(toJson(dto.getHeaders()));
+            rMap = dto.getRaw_content() instanceof Map ? (Map<String, Object>) dto.getRaw_content() : parseJson(toJson(dto.getRaw_content()));
+            iMap = dto.getIndexed_content() instanceof Map ? (Map<String, Object>) dto.getIndexed_content() : parseJson(toJson(dto.getIndexed_content()));
+            pMap = dto.getParam_mapping() instanceof Map ? (Map<String, Object>) dto.getParam_mapping() : parseJson(toJson(dto.getParam_mapping()));
+        } catch (Exception e) {}
+
+        Map<String, Object> filteredHeaders = extractChannelData(hMap, channelType);
+        Map<String, Object> filteredRaw = extractChannelData(rMap, channelType);
+        Map<String, Object> filteredIdx = extractChannelData(iMap, channelType);
+        Map<String, Object> filteredParam = extractChannelData(pMap, channelType);
+
         nextVersionTemplate.setAlertConfig(dto.getAlert_config() != null ? toJson(dto.getAlert_config()) : (previous != null ? previous.getAlertConfig() : null));
-        nextVersionTemplate.setHeaders(dto.getHeaders() != null ? toJson(dto.getHeaders()) : (previous != null ? previous.getHeaders() : null));
-        nextVersionTemplate.setRawContent(dto.getRaw_content() != null ? toJson(dto.getRaw_content()) : (previous != null ? previous.getRawContent() : null));
-        nextVersionTemplate.setIndexedContent(dto.getIndexed_content() != null ? toJson(dto.getIndexed_content()) : (previous != null ? previous.getIndexedContent() : null));
-        nextVersionTemplate.setParamMapping(dto.getParam_mapping() != null ? toJson(dto.getParam_mapping()) : (previous != null ? previous.getParamMapping() : null));
+        nextVersionTemplate.setHeaders(filteredHeaders != null && !filteredHeaders.isEmpty() ? toJson(filteredHeaders) : (previous != null ? previous.getHeaders() : null));
+        nextVersionTemplate.setRawContent(filteredRaw != null && !filteredRaw.isEmpty() ? toJson(filteredRaw) : (previous != null ? previous.getRawContent() : null));
+        nextVersionTemplate.setIndexedContent(filteredIdx != null && !filteredIdx.isEmpty() ? toJson(filteredIdx) : (previous != null ? previous.getIndexedContent() : null));
+        nextVersionTemplate.setParamMapping(filteredParam != null && !filteredParam.isEmpty() ? toJson(filteredParam) : (previous != null ? previous.getParamMapping() : null));
         nextVersionTemplate.setContentHash(dto.getContentHash());
         nextVersionTemplate.setExceptionReason(dto.getExceptionReason());
         nextVersionTemplate.setDuplicateAllowed(dto.getIsDuplicateallowed() != null ? dto.getIsDuplicateallowed() : (previous != null ? previous.getDuplicateAllowed() : false));
 
-        // Audit Requirement: CreatedBy provided or SYSTEM. CreatedDate NOW. Modified NULL.
         nextVersionTemplate.setCreatedBy(dto.getCreatedBy() != null ? dto.getCreatedBy() : "SYSTEM");
         nextVersionTemplate.setCreatedDate(LocalDateTime.now());
         nextVersionTemplate.setModifiedBy(null);
@@ -810,23 +848,10 @@ public class TemplateService {
 
         TemplateMaster saved = masterRepo.save(nextVersionTemplate);
 
-        // Create Channel Records
         boolean isChannelActive = "1".equals(targetStatus);
-        if ("SMS".equalsIgnoreCase(dto.getMessageType()) || "BOTH".equalsIgnoreCase(dto.getMessageType())) {
-            saveChannelTemplate(nextFullName, extractSpecificKey(dto.getIndexed_content(), "indexed_content_sms"), "SMS", isChannelActive);
-        }
-        if ("EMAIL".equalsIgnoreCase(dto.getMessageType()) || "BOTH".equalsIgnoreCase(dto.getMessageType())) {
-            saveChannelTemplate(nextFullName, extractSpecificKey(dto.getIndexed_content(), "indexed_content_email"), "EMAIL", isChannelActive);
-        }
+        saveChannelTemplate(nextFullName, extractSpecificKey(dto.getIndexed_content(), "indexed_content_" + channelType.toLowerCase()), channelType, isChannelActive);
 
-        return TemplateUpdateResponseDTO.builder()
-                .success(true)
-                .id(saved.getId())
-                .templateId(saved.getTemplateName())
-                .version(saved.getVersion())
-                .status("1".equals(saved.getIsActive()) ? "ACTIVE" : "INACTIVE")
-                .message("Template version " + nextVersion + " created successfully")
-                .build();
+        return saved;
     }
 
     private void updateChannelTemplate(String oldName, String newName, boolean active, String type) {
